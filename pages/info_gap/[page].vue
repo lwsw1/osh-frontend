@@ -76,6 +76,8 @@
                   <span class="main-title">{{ item.title }}</span>
                 </div>
 
+                <div>哈哈哈</div>
+
                 <div class="meta-group">
                   <span class="meta-item"
                     ><n-icon><PersonOutline /></n-icon
@@ -203,6 +205,7 @@
 <!-- 样式实时切换 暂时搞不出来 算了 TODO -->
 
 <script setup>
+// ==================== 1) 依赖导入 ====================
 import {
   NGrid,
   NGridItem,
@@ -235,36 +238,43 @@ import {
 } from '@vicons/ionicons5';
 import InfoGapHotList from "~/components/InfoGapHotList.vue";
 
-// 1. 初始化查询参数（对应后端的 Page 参数和自定义搜索参数）
+// ==================== 2) 页面状态 ====================
+// 路由对象：用于读取 page 参数和 query 参数
+const route = useRoute();
+
+// 列表查询参数：同时驱动 UI、URL 和后端请求
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
   type: 'hot', // 排序：hot, latest, follow
   title: '', // 搜索词
 });
-const showModal = ref(false); // 控制弹窗显示
-const btnLoading = ref(false); // 按钮加载状态
+
+// 发布弹窗相关状态
+const showModal = ref(false);
+const btnLoading = ref(false);
 const form = reactive({
   title: '',
   tag: '技术',
   content: '',
 });
-const route = useRoute();
 
-const pending = ref(false); // 加载状态
-const error = ref(null); // 错误捕获
-const total = ref(0); // 后端返回的总条数
-const rows = ref([]); // 列表数据容器
-// 2. 加载数据的方法
+// 列表请求状态
+const pending = ref(false);
+const error = ref(null);
+const total = ref(0);
+const rows = ref([]);
 
-// 1. 修改加载数据的方法，调用你封装的 useHttpGet
+// ==================== 3) 列表数据加载 ====================
+// 读取列表数据，并把后端字段补齐成前端可直接渲染的结构
 const loadData = async () => {
-  console.log('--- 正在请求页码 ---', queryParams.pageNum); // 看这个打印！
+  console.log('--- 正在请求页码 ---', queryParams.pageNum);
   pending.value = true;
   error.value = null;
 
   try {
-    const dynamicKey = `info-gap-list-${queryParams.type}-p${queryParams.pageNum}`; // 加上 pageNum
+    // 使用动态 key，按分类 + 页码区分请求缓存
+    const dynamicKey = `info-gap-list-${queryParams.type}-p${queryParams.pageNum}`;
     const { data, error: fetchError } = await useHttpGet(
       dynamicKey,
       '/info_gap/list',
@@ -281,11 +291,9 @@ const loadData = async () => {
     }
 
     if (data.value) {
-      // 【关键修改】：只在这里赋值一次！
-      // 确保 isVoted, goodCount 等字段都在 map 里初始化
+      // 统一初始化交互字段，避免模板侧出现 undefined
       rows.value = (data.value.rows || []).map((row) => ({
         ...row,
-        // 确保这些字段存在，Vue 才能追踪它们的变化
         isVoted: row.isVoted || 0,
         goodCount: row.goodCount || 0,
         middleCount: row.middleCount || 0,
@@ -305,28 +313,31 @@ const loadData = async () => {
   }
 };
 
-// 分页数值变化
+// ==================== 4) 顶部筛选与分页事件 ====================
 const handlePageChange = (p) => {
   console.log('正在跳转至页码:', p);
   syncToPage(p);
 };
 
-// 展示类型变化
+// 切换类型后回到第一页
 const handleTypeChange = async (value) => {
   queryParams.type = value;
   await syncToPage(1);
 };
 
-// 搜索信息时使用
+// 搜索时回到第一页
 const handleSearch = async () => {
   await syncToPage(1);
 };
 
+// ==================== 5) 路由参数与查询参数同步 ====================
+// 从路由读取当前的筛选条件
 const getRouteType = () => route.query.type || 'hot';
 const getRouteTitle = () =>
     typeof route.query.title === 'string' ? route.query.title : '';
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
+// 同步到目标页：同页则直接刷新，不同页则更新 URL
 const syncToPage = async (page) => {
   queryParams.pageNum = page;
 
@@ -345,29 +356,24 @@ const syncToPage = async (page) => {
   });
 };
 
-// 2. 修改监听逻辑：监听路由里的页码参数
+// 监听 URL 页码变化，并把 URL 上的 type/title 同步回查询参数
 watch(
   () => route.params.page,
   (newP) => {
-    // 只要 URL 里的 page 变了，就同步给请求参数并刷数据
     const p = parseInt(newP) || 1;
     queryParams.pageNum = p;
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
     loadData();
   },
-  { immediate: true } // 初始进来时也抓一次
+  { immediate: true }
 );
-// 4. 挂载时立即请求数据
-// onMounted(() => {
-//   loadData();
-// });
 
-// 3. 时间格式化（后端返回的是 2026-03-27T07:48:39，需要美化）
+// ==================== 6) 纯工具函数 ====================
+// 时间格式化：2026-03-27T07:48:39 -> 03-27 07:48
 const formatTime = (timeStr) => {
   if (!timeStr) return '';
   const date = new Date(timeStr);
-  // 返回格式：03-27 07:48
   return `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date
     .getDate()
     .toString()
@@ -377,13 +383,16 @@ const formatTime = (timeStr) => {
     .padStart(2, '0')}`;
 };
 
+// 点开详情页
 const handleDetail = (id) => navigateTo(`/detail/info_gap/${id}`);
-// 1. 点击顶部的绿色按钮打开弹窗
+
+// ==================== 7) 发布弹窗与发布流程 ====================
+// 打开发布弹窗
 const handlePublish = () => {
   showModal.value = true;
 };
 
-// 2. 提交数据到后端
+// 提交发布：校验 -> 请求 -> 提示 -> 关闭并刷新列表
 const confirmPublish = async () => {
   if (!form.title || !form.content) {
     const { message } = createDiscreteApi(['message']);
@@ -392,14 +401,12 @@ const confirmPublish = async () => {
 
   btnLoading.value = true;
   try {
-    // 调用你封装好的 useHttpPost
-    // 注意：后端对应的接口地址记得对齐，假设是 /info_gap/add
     const { data, error: postError } = await useHttpPost(
       'add-info-gap',
       '/info_gap/save',
       {
-        body: form, // POST 请求的数据放在 body 里
-        $: true, // 强制请求模式
+        body: form,
+        $: true,
       }
     );
 
@@ -408,10 +415,9 @@ const confirmPublish = async () => {
     const { message } = createDiscreteApi(['message']);
     message.success('发布成功！');
 
-    // 发布成功后的“收尾”三部曲：
-    showModal.value = false; // 1. 关弹窗
-    Object.assign(form, { title: '', tag: '技术', content: '' }); // 2. 清空表单
-    await syncToPage(1); // 3. 回到第一页并刷新列表
+    showModal.value = false;
+    Object.assign(form, { title: '', tag: '技术', content: '' });
+    await syncToPage(1);
   } catch (err) {
     console.error('发布失败:', err);
   } finally {
@@ -419,11 +425,12 @@ const confirmPublish = async () => {
   }
 };
 
-// 1. 点赞/评价逻辑
+// ==================== 8) 列表交互动作 ====================
+// 评价动作：乐观更新 + 请求失败回滚
 const handleVote = async (item, type) => {
   const { message } = createDiscreteApi(['message']);
 
-  // 1. 备份快照（回滚用）
+  // 先存快照，用于失败时回滚
   const oldVoted = item.isVoted;
   const oldCounts = {
     1: item.goodCount,
@@ -431,23 +438,19 @@ const handleVote = async (item, type) => {
     3: item.badCount,
   };
 
-  // 2. 核心逻辑（只跑一次判断）
+  // 本地先更新 UI
   if (oldVoted === type) {
-    // 场景 A：取消评价 (点的是同一个按钮)
     updateCount(item, type, -1);
     item.isVoted = 0;
   } else {
-    // 场景 B & C：切换评价 或 新增评价
     if (oldVoted !== 0) {
-      // 如果之前有旧评价，先把旧的减掉（对应后端 oldColumn - 1）
       updateCount(item, oldVoted, -1);
     }
-    // 加上新的（对应后端 currentColumn + 1）
     updateCount(item, type, 1);
     item.isVoted = type;
   }
 
-  // 3. 发送请求
+  // 再发请求，失败则回滚
   try {
     const { error } = await useHttpPost('info-vote', '/info_gap/vote', {
       query: { id: item.id, type: type },
@@ -456,7 +459,6 @@ const handleVote = async (item, type) => {
     if (error.value) throw new Error(error.value.message || '后端处理失败');
     message.success(item.isVoted === 0 ? '已取消评价' : '评价成功');
   } catch (err) {
-    // 4. 异常回滚
     item.isVoted = oldVoted;
     item.goodCount = oldCounts[1];
     item.middleCount = oldCounts[2];
@@ -465,19 +467,15 @@ const handleVote = async (item, type) => {
   }
 };
 
-// 2. 关注作者逻辑
+// 关注动作：乐观更新 + 请求失败回滚
 const handleFollow = async (item) => {
   const { message } = createDiscreteApi(['message']);
 
-  // --- 第一步：UI 瞬间切换（乐观更新） ---
-  // 先把原始状态存起来，万一接口挂了我们要回滚
+  // 本地先更新 UI，失败再回滚
   const originalStatus = item.isFollowed;
-
-  // 直接修改对象属性，Vue 3 的 reactive 会自动追踪
   item.isFollowed = !item.isFollowed;
 
   try {
-    // --- 第二步：静默发送请求 ---
     const { error } = await useHttpPost(
       'info-follow',
       `/info_gap/follow/${item.userId}`,
@@ -486,28 +484,26 @@ const handleFollow = async (item) => {
 
     if (error.value) throw error.value;
 
-    // --- 第三步：成功处理 ---
-    // 这里千万、千万不要写 loadData()！！
-    // 因为 UI 已经变了，后端也成功了，下次刷新自然也是对的。
     message.success(item.isFollowed ? '关注成功' : '已取消关注');
   } catch (err) {
-    // --- 第四步：异常回滚 ---
-    // 只有请求真的失败了，才把按钮切回去
     item.isFollowed = originalStatus;
     message.error('关注操作失败，请检查网络');
   }
 };
 
+// 展开/收起单条内容
 const toggleExpand = (item) => {
   item.isExpanded = !item.isExpanded;
 };
 
-// 抽取一个辅助函数，省得写那么多 if-else
+// 统一更新三种评价计数
 const updateCount = (item, type, delta) => {
   if (type === 1) item.goodCount += delta;
   if (type === 2) item.middleCount += delta;
   if (type === 3) item.badCount += delta;
 };
+
+// ==================== 9) 页面元信息 ====================
 useHead({ title: '信息差 - 开源助手' });
 </script>
 
