@@ -41,7 +41,7 @@
             <n-icon><StarOutline /></n-icon> 最新发布
           </n-radio-button>
           <n-radio-button value="follow">
-            <n-icon><BuildOutline /></n-icon> 我关注的
+            <n-icon><BuildOutline /></n-icon> 我收藏的
           </n-radio-button>
         </n-radio-group>
       </n-space>
@@ -151,9 +151,10 @@
       </n-grid-item>
 
       <n-grid-item :span="6">
-        <HotCourseList />
+        <InfoGapHotList />
       </n-grid-item>
     </n-grid>
+
     <n-modal
       v-model:show="showModal"
       preset="card"
@@ -232,6 +233,7 @@ import {
   StarOutline,
   BuildOutline,
 } from '@vicons/ionicons5';
+import InfoGapHotList from "~/components/InfoGapHotList.vue";
 
 // 1. 初始化查询参数（对应后端的 Page 参数和自定义搜索参数）
 const queryParams = reactive({
@@ -254,29 +256,6 @@ const error = ref(null); // 错误捕获
 const total = ref(0); // 后端返回的总条数
 const rows = ref([]); // 列表数据容器
 // 2. 加载数据的方法
-
-const getRouteType = () => route.query.type || 'hot';
-const getRouteTitle = () =>
-  typeof route.query.title === 'string' ? route.query.title : '';
-const getRoutePageNum = () => parseInt(route.params.page) || 1;
-
-const syncToPage = async (page) => {
-  queryParams.pageNum = page;
-
-  if (getRoutePageNum() === page) {
-    await loadData();
-    return;
-  }
-
-  await navigateTo({
-    path: `/info_gap/${page}`,
-    query: {
-      ...route.query,
-      type: queryParams.type,
-      title: queryParams.title || undefined,
-    },
-  });
-};
 
 // 1. 修改加载数据的方法，调用你封装的 useHttpGet
 const loadData = async () => {
@@ -326,19 +305,44 @@ const loadData = async () => {
   }
 };
 
-// 1. 修改跳转逻辑：把页码塞进 Query
+// 分页数值变化
 const handlePageChange = (p) => {
   console.log('正在跳转至页码:', p);
   syncToPage(p);
 };
 
+// 展示类型变化
 const handleTypeChange = async (value) => {
   queryParams.type = value;
   await syncToPage(1);
 };
 
+// 搜索信息时使用
 const handleSearch = async () => {
   await syncToPage(1);
+};
+
+const getRouteType = () => route.query.type || 'hot';
+const getRouteTitle = () =>
+    typeof route.query.title === 'string' ? route.query.title : '';
+const getRoutePageNum = () => parseInt(route.params.page) || 1;
+
+const syncToPage = async (page) => {
+  queryParams.pageNum = page;
+
+  if (getRoutePageNum() === page) {
+    await loadData();
+    return;
+  }
+
+  await navigateTo({
+    path: `/info_gap/${page}`,
+    query: {
+      ...route.query,
+      type: queryParams.type,
+      title: queryParams.title || undefined,
+    },
+  });
 };
 
 // 2. 修改监听逻辑：监听路由里的页码参数
