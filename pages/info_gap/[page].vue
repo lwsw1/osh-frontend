@@ -8,9 +8,9 @@
       <n-space align="center" justify="space-between" style="width: 100%">
         <n-space>
           <n-button type="primary" @click="handlePublish">
-            <template #icon
-              ><n-icon><Add /></n-icon
-            ></template>
+            <template #icon>
+              <n-icon><Add /></n-icon>
+            </template>
             发布我的信息差
           </n-button>
           <n-input-group style="width: 300px">
@@ -21,9 +21,9 @@
               @keyup.enter="handleSearch"
             />
             <n-button ghost @click="handleSearch">
-              <template #icon
-                ><n-icon><SearchOutline /></n-icon
-              ></template>
+              <template #icon>
+                <n-icon><SearchOutline /></n-icon>
+              </template>
             </n-button>
           </n-input-group>
         </n-space>
@@ -76,17 +76,15 @@
                   <span class="main-title">{{ item.title }}</span>
                 </div>
 
-                <div>哈哈哈</div>
-
                 <div class="meta-group">
-                  <span class="meta-item"
-                    ><n-icon><PersonOutline /></n-icon
-                    >{{ item.nickname || '匿名' }}</span
-                  >
-                  <span class="meta-item time"
-                    ><n-icon><TimeOutline /></n-icon
-                    >{{ formatTime(item.createTime) }}</span
-                  >
+                  <span class="meta-item">
+                    <n-icon><PersonOutline /></n-icon>
+                    {{ item.nickname || '匿名' }}
+                  </span>
+                  <span class="meta-item time">
+                    <n-icon><TimeOutline /></n-icon>
+                    {{ formatTime(item.createTime) }}
+                  </span>
                 </div>
 
                 <div class="action-group">
@@ -193,9 +191,13 @@
       <template #footer>
         <n-space justify="end">
           <n-button @click="showModal = false">取消</n-button>
-          <n-button type="primary" :loading="btnLoading" @click="confirmPublish"
-            >确认发布</n-button
+          <n-button
+            type="primary"
+            :loading="btnLoading"
+            @click="confirmPublish"
           >
+            确认发布
+          </n-button>
         </n-space>
       </template>
     </n-modal>
@@ -334,7 +336,7 @@ const handleSearch = async () => {
 // 从路由读取当前的筛选条件
 const getRouteType = () => route.query.type || 'hot';
 const getRouteTitle = () =>
-    typeof route.query.title === 'string' ? route.query.title : '';
+  typeof route.query.title === 'string' ? route.query.title : '';
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
 // 同步到目标页：同页则直接刷新，不同页则更新 URL
