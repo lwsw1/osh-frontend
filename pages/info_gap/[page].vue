@@ -71,7 +71,7 @@
                   </n-icon>
                 </div>
 
-                <div class="title-section" @click="handleDetail(item.id)">
+                <div class="title-section">
                   <span class="tag">【{{ item.tag }}】</span>
                   <span class="main-title">{{ item.title }}</span>
                   <span class="sub-tag-1"> 标签1 </span>
@@ -126,7 +126,7 @@
                       strong
                       @click.stop="handleFollow(item)"
                     >
-                      {{ item.isFollowed ? '已关注' : '+关注' }}
+                      ⭐️ {{ item.isFollowed ? '已收藏' : '收藏' }}
                     </n-button>
                   </n-space>
                 </div>
