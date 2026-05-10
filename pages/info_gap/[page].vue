@@ -74,6 +74,9 @@
                 <div class="title-section" @click="handleDetail(item.id)">
                   <span class="tag">【{{ item.tag }}】</span>
                   <span class="main-title">{{ item.title }}</span>
+                  <span class="sub-tag-1"> 标签1 </span>
+                  <span class="sub-tag-2"> 标签2 </span>
+                  <span class="sub-tag-3"> 标签3 </span>
                 </div>
 
                 <div class="meta-group">
@@ -553,10 +556,10 @@ useHead({ title: '信息差 - 开源助手' });
 
 /* 标题区：自动伸缩 */
 .title-section {
-  flex: 1;
   display: flex;
   align-items: center;
-  min-width: 0;
+  gap: 8px;
+  width: 100%;
   cursor: pointer;
 }
 
@@ -564,6 +567,7 @@ useHead({ title: '信息差 - 开源助手' });
   font-weight: bold;
   color: #165d69;
   white-space: nowrap;
+  margin-right: 8px;
 }
 
 .main-title {
@@ -572,6 +576,27 @@ useHead({ title: '信息差 - 开源助手' });
   color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.sub-tag-1 {
+  font-weight: bold;
+  color: #165d69;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.sub-tag-2 {
+  font-weight: bold;
+  color: #165d69;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.sub-tag-3 {
+  font-weight: bold;
+  color: #165d69;
   white-space: nowrap;
 }
 
