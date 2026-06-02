@@ -279,13 +279,16 @@ async function handleBuy() {
 
 function startPolling(seckillNo, needPay = true) {
   let count = 0
-  const MAX_POLLS = 30   // 每1秒轮询一次，最多30次 = 30秒超时
+  const MAX_POLLS = 30        // 每1秒轮询一次，最多30次 = 30秒超时
+  // 建单正常耗时阈值：超过此次数后收到 null 视为"订单不存在/已超时"
+  // 而不是"建单中"。Kafka 消费通常在 3~5 秒内完成，这里给 8 秒余量
+  const NULL_TIMEOUT_COUNT = 8
   polling.value = setInterval(async () => {
     count++
     if (count > MAX_POLLS) {
       clearInterval(polling.value)
       loading.value = false
-      message.error('订单生成超时，请重试')
+      message.error('建单超时，请刷新页面查看结果')
       return
     }
 
@@ -304,24 +307,42 @@ function startPolling(seckillNo, needPay = true) {
       return
     }
 
-    // data 为 null 或 status=-1，后台仍在处理，继续等待
-    if (!result?.data || result.data.status === -1) return
+    // status=-1：后台 Kafka 仍在处理，继续等待
+    if (result?.data?.status === -1) return
+
+    // data 为 null 的两种情况：
+    //   1. 建单中（Redis key 还没写入）：count 较小时继续等待
+    //   2. 订单已超时/不存在（Redis key 过期 + DB 兜底查不到）：count 超过阈值后停止
+    // 用轮询计数区分：建单通常 3~5 秒完成，超过 NULL_TIMEOUT_COUNT 次还是 null
+    // 说明不是建单中，而是订单已超时或根本不存在，主动提示用户
+    if (!result?.data) {
+      if (count >= NULL_TIMEOUT_COUNT) {
+        clearInterval(polling.value)
+        loading.value = false
+        message.warning('订单已超时或不存在，请重新抢购')
+        return
+      }
+      // 还在阈值内，继续等待
+      return
+    }
 
     const orderStatus = result.data.status
 
     if (orderStatus === 0) {
       clearInterval(polling.value)
 
-      let resOrderNo = result.data.orderNo || seckillNo || ''
+      // status=0 时 orderNo 才有值，不能用 seckillNo 兜底
+      // seckillNo 是秒杀尝试号，orderNo 才是支付单号
+      let resOrderNo = result.data.orderNo || ''
       let resQrcode  = result.data.qrcode  || ''
       let resPayUrl  = result.data.payUrl   || ''
 
-      // 后端 orderNo 为 null 时，补调发起支付接口拿单号和二维码
+      // orderNo 或二维码缺失时，用 orderNo 调发起支付接口补拿
+      // 注意：此处只用 resOrderNo，不能用 seckillNo 替代
       if (!resOrderNo || (!resQrcode && !resPayUrl)) {
         try {
-          // 用 activityId+itemId 作为兜底标识调发起支付接口
           const payRes = await seckillFetch(
-            `/seckill/user/order/pay/${encodeURIComponent(resOrderNo || `${activityId}_${itemId}`)}`,
+            `/seckill/user/order/pay/${encodeURIComponent(resOrderNo)}`,
             { method: 'POST' }
           )
           resOrderNo = resOrderNo || payRes?.data?.orderNo || payRes?.data?.out_trade_no || ''

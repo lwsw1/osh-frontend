@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
   const user = useUser();
   const route = useRoute();
 
-  if (to.path === '/login' || to.path === '/register' || to.path === '/forget') return;
+  if (to.path === '/login' || to.path === '/register' || to.path === '/forget' || to.path === '/admin-register') return;
   // 未登录
   if (!token.value) {
     if (process.client) {

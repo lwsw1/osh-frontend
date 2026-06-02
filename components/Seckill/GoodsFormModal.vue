@@ -161,7 +161,6 @@ watch(() => props.show, (val) => {
       minSeckillPrice: d.minSeckillPrice ?? null,
       sort:            d.sort           ?? 0,
     })
-    // 编辑时回填预览信息
     preview.goodsName   = d.goodsName   || ''
     preview.goodsCover  = d.goodsCover  || ''
     preview.originPrice = d.originPrice ?? null
@@ -173,7 +172,6 @@ watch(() => props.show, (val) => {
 async function handleSubmit() {
   try { await formRef.value?.validate() } catch { return }
 
-  // 校验秒杀价必须大于0（rules 已限制，这里做兜底提示）
   if (!formData.minSeckillPrice || formData.minSeckillPrice <= 0) {
     message.warning('最低秒杀价必须大于0')
     return

@@ -170,18 +170,11 @@ export function apiGetPendingConfirmCount() {
  * 获取反馈分类列表
  */
 export function apiGetFeedbackCategories() {
-  return $fetch('/public/feedback/category/list', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
+  return assistantFetch('/feedback/category/list')
 }
 
 export function apiGetFeedbackTags(params = {}) {
-  return $fetch('/public/feedback/tag/list', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-    query: params,
-  })
+  return assistantFetch('/feedback/tag/list', { query: params })
 }
 
 export function apiCreateFeedbackTag(payload) {
@@ -195,9 +188,18 @@ export function apiCreateFeedbackTag(payload) {
  * 分页查询反馈列表
  */
 export function apiPageFeedback(params) {
-  return assistantFetch('/public/feedback/page', {
+  return assistantFetch('/feedback/page', {
     method: 'POST',
     body: params,
+  })
+}
+
+/**
+ * 拉取反馈公告。
+ */
+export function apiGetFeedbackAnnouncements(limit = 10) {
+  return assistantFetch('/feedback/announcement/list', {
+    query: { limit },
   })
 }
 
@@ -205,27 +207,25 @@ export function apiPageFeedback(params) {
  * 获取反馈详情
  */
 export function apiGetFeedbackDetail(id) {
-  return assistantFetch(`/public/feedback/detail/${id}`)
+  return assistantFetch(`/feedback/detail/${id}`)
 }
 
 export function apiGetFeedbackStatusSummary(id) {
-  return assistantFetch(`/public/feedback/status-summary/${id}`)
+  return assistantFetch(`/feedback/status-summary/${id}`)
 }
 
 /**
  * 获取反馈处理记录列表
  */
 export function apiGetFeedbackProcessRecords(feedbackId) {
-  return assistantFetch(`/public/feedback/${feedbackId}/process-record/list`)
+  return assistantFetch(`/feedback/${feedbackId}/process-record/list`)
 }
 
 /**
  * 获取反馈评论列表
  */
 export function apiGetFeedbackComments(feedbackId, pageNum = 1, pageSize = 20) {
-  return $fetch(`/public/feedback/${feedbackId}/comment/list`, {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
+  return assistantFetch(`/feedback/${feedbackId}/comment/list`, {
     params: { pageNum, pageSize },
   })
 }
@@ -260,16 +260,6 @@ export function apiCreateComment(feedbackId, payload) {
 }
 
 // ==================== 反馈系统 - 管理员接口 ====================
-
-/**
- * 创建公告（仅管理员）
- */
-export function apiCreateAnnouncement(payload) {
-  return assistantFetch('/admin/feedback/announcement/create', {
-    method: 'POST',
-    body: payload,
-  })
-}
 
 /**
  * 反馈管理列表（分页）

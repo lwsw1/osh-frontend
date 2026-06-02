@@ -1,219 +1,586 @@
 <template>
-  <!-- 页面容器：宽度拉满，仅留左右内边距 -->
-  <div class="page-wrapper">
-    <!-- 面包屑 -->
-    <div class="breadcrumb-box">
-      <n-breadcrumb>
-        <n-breadcrumb-item>
-          <nuxt-link to="/">首页</nuxt-link>
-        </n-breadcrumb-item>
-        <n-breadcrumb-item>实用网站</n-breadcrumb-item>
-      </n-breadcrumb>
-    </div>
+  <div class="website-container">
+    <!-- 筛选栏 -->
+    <UseFullFilter
+      v-model:modelValue="queryParams"
+      :tag-options="tagOptions"
+      @search="handleSearch"
+    >
+      <template #actions>
+        <ClientOnly>
+          <button v-if="canSubmit" class="btn-create" @click="goCreate">
+            + 提交网站
+          </button>
+        </ClientOnly>
+      </template>
+    </UseFullFilter>
 
-    <!-- 搜索组件 -->
-    <div class="search-box">
-      <UseFullSearch @search="handleSearch" />
-    </div>
-
-    <!-- 记录列表：非表格布局，纯卡片长条 -->
-    <div class="records-list">
-      <!-- 列表表头 -->
-      <div class="record-header">
-        <div class="header-item name-col">网站名称</div>
-        <div class="header-item desc-col">详细信息</div>
-        <div class="header-item action-col">访问链接</div>
-        <div class="header-item status-col">状态</div>
-        <div class="header-item rate-col">评价</div>
-      </div>
-
-      <!-- 每条记录：长条卡片 -->
-      <div 
-        class="record-item" 
-        v-for="item in list" 
-        :key="item.id"
-      >
-        <div class="record-col name-col">{{ item.name }}</div>
-        <div class="record-col desc-col">{{ item.desc }}</div>
-        
-        <!-- 访问链接 -->
-        <div class="record-col action-col">
-          <n-button text type="primary" @click="openLink(item.url, item.id)">
-            点击访问 ({{ item.clickCount }})
-          </n-button>
+    <!-- 列表区域 -->
+    <div class="website-content">
+      <!-- 加载中 -->
+      <Transition name="fade">
+        <div v-if="loading" class="loading-overlay">
+          <n-spin size="large" />
         </div>
+      </Transition>
 
-        <!-- 状态 -->
-        <div class="record-col status-col">
-          <n-tag type="success" v-if="item.status === 1"> 已通过 </n-tag>
-          <n-tag type="warning" v-else> 待审核 </n-tag>
-        </div>
+      <ClientOnly>
+        <div class="website-list-box">
+          <div v-if="websiteList.length > 0" class="website-row-list">
+            <div
+              v-for="item in websiteList"
+              :key="item.id"
+              class="website-item-row"
+            >
+              <!-- 主内容行 -->
+              <div class="website-row-main">
+                <!-- Logo / 首字母头像 -->
+                <div class="website-logo" :style="{ background: getLogoBg(item.name) }">
+                  <img
+                    v-if="item.logoUrl"
+                    :src="item.logoUrl"
+                    :alt="item.name"
+                    class="logo-img"
+                    @error="e => e.target.style.display='none'"
+                  />
+                  <span v-else class="logo-placeholder">{{ item.name?.charAt(0) }}</span>
+                </div>
 
-        <!-- 评价：好评 中评 差评 全部显示 -->
-        <div class="record-col rate-col">
-          <n-button text size="small" type="success" @click="setRate(item.id, '好评')">
-            好评({{ item.good }})
-          </n-button>
-          <n-button text size="small" type="warning" class="ml-1" @click="setRate(item.id, '中评')">
-            中评({{ item.medium }})
-          </n-button>
-          <n-button text size="small" type="error" class="ml-1" @click="setRate(item.id, '差评')">
-            差评({{ item.bad }})
-          </n-button>
+                <!-- 名称 + 描述 + 标签 -->
+                <div class="website-info">
+                  <div class="website-name-row">
+                    <span class="website-name">{{ item.name }}</span>
+                    <span v-if="item.no" class="website-no">{{ item.no }}</span>
+                    <span class="website-tags">
+                      <n-tag
+                        v-for="tag in parseTags(item.tags)"
+                        :key="tag"
+                        size="small"
+                        :bordered="false"
+                        class="tag-item"
+                      >{{ tag }}</n-tag>
+                    </span>
+                  </div>
+                  <div class="website-desc">{{ item.description || '暂无描述' }}</div>
+                </div>
+
+                <!-- 统计数据：我的收藏模式下不显示 -->
+                <div v-if="!queryParams.isFollowing" class="website-meta">
+                  <span class="meta-item">{{ item.clickCount || 0 }} 访问</span>
+                  <span class="meta-item">{{ item.collectionCount || 0 }} 收藏</span>
+                  <span v-if="item.ratingScore" class="meta-item score">
+                    ⭐ {{ Number(item.ratingScore).toFixed(1) }}
+                  </span>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="website-actions">
+                  <!-- 评价按钮：我的收藏模式下不显示 -->
+                  <ClientOnly>
+                    <template v-if="canRating && !queryParams.isFollowing">
+                      <button
+                        class="action-btn vote good"
+                        :class="{ active: item.myRating === 1 }"
+                        @click.stop="handleRating(item, 1)"
+                      >👍 {{ item.goodCount || 0 }}</button>
+                      <button
+                        class="action-btn vote mid"
+                        :class="{ active: item.myRating === 2 }"
+                        @click.stop="handleRating(item, 2)"
+                      >😐 {{ item.midCount || 0 }}</button>
+                      <button
+                        class="action-btn vote bad"
+                        :class="{ active: item.myRating === 3 }"
+                        @click.stop="handleRating(item, 3)"
+                      >👎 {{ item.badCount || 0 }}</button>
+                    </template>
+                  </ClientOnly>
+
+                  <!-- 收藏按钮 -->
+                  <ClientOnly>
+                    <button
+                      v-if="canFavorite"
+                      class="action-btn favorite"
+                      :class="{ active: item.isFavorite }"
+                      @click.stop="handleFavorite(item)"
+                    >{{ item.isFavorite ? '已收藏' : '+ 收藏' }}</button>
+                  </ClientOnly>
+
+                  <!-- 访问按钮 -->
+                  <button
+                    class="action-btn open"
+                    @click.stop="handleOpen(item)"
+                  >🔗 访问</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="!loading" class="empty-placeholder">
+            <n-empty :description="queryParams.isFollowing ? '暂无收藏的网站' : '暂无网站数据'" />
+          </div>
         </div>
+      </ClientOnly>
+
+      <!-- 分页 -->
+      <div class="pagination-footer">
+        <n-pagination
+          v-model:page="queryParams.pageNum"
+          :item-count="total"
+          :page-size="queryParams.pageSize"
+          @update:page="handlePageChange"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { NTag, NButton, NBreadcrumb, NBreadcrumbItem } from 'naive-ui'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { createDiscreteApi, NPagination, NSpin, NEmpty, NTag } from 'naive-ui'
+import UseFullFilter from '~/components/UseFull/Filter.vue'
+import {
+  apiWebsiteTags,
+  apiWebsiteList,
+  apiWebsiteMyFavorites,
+  apiWebsiteClick,
+  apiWebsiteFavorite,
+  apiWebsiteCancelFavorite,
+  apiWebsiteRating,
+} from '~/composables/Api/UseFull/usefull'
 
-const list = ref([
-  { 
-    id: 1, 
-    name: '菜鸟教程', 
-    url: 'https://www.runoob.com', 
-    status: 1,
-    desc: '包含HTML、CSS、JavaScript、Python等多语言入门教程',
-    clickCount: 128, good: 86, medium: 12, bad: 3
-  },
-  { 
-    id: 2, 
-    name: 'Vue官方文档', 
-    url: 'https://cn.vuejs.org', 
-    status: 1,
-    desc: 'Vue3官方中文文档，含组合式API、单文件组件等核心内容',
-    clickCount: 205, good: 190, medium: 12, bad: 3
-  },
-  { 
-    id: 3, 
-    name: 'Spring官网', 
-    url: 'https://spring.io', 
-    status: 1,
-    desc: 'Spring生态官方站点，涵盖Spring Boot、Spring Cloud等框架',
-    clickCount: 92, good: 45, medium: 33, bad: 14
-  },
-  { 
-    id: 4, 
-    name: 'Postman', 
-    url: 'https://www.postman.com', 
-    status: 1,
-    desc: 'API调试与测试工具，支持接口请求、集合管理、自动化测试',
-    clickCount: 156, good: 140, medium: 15, bad: 1
-  },
-  { 
-    id: 5, 
-    name: 'Docker官方', 
-    url: 'https://www.docker.com', 
-    status: 1,
-    desc: 'Docker容器化技术官方站点，含文档、镜像仓库、教程',
-    clickCount: 133, good: 105, medium: 20, bad: 8
-  },
-])
+const { permissionList } = usePermission()
 
-const handleSearch = (params) => { console.log('搜索', params) }
+const canSubmit   = computed(() => permissionList.value.includes('website:submit'))
+const canFavorite = computed(() => permissionList.value.includes('website:favorite'))
+const canRating   = computed(() => permissionList.value.includes('website:rating:submit'))
 
-const openLink = (url, id) => {
-  const item = list.value.find(i => i.id === id)
-  if (item) item.clickCount++
-  window.open(url, '_blank')
+const queryParams = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  websiteName: '',
+  tagNames: [],
+  isFollowing: false,
+})
+
+const websiteList = ref([])
+const tagOptions  = ref([])
+const total       = ref(0)
+const loading     = ref(false)
+
+// 根据名称生成固定背景色，同一名称颜色始终一致
+const LOGO_COLORS = [
+  'linear-gradient(135deg,#667eea,#764ba2)',
+  'linear-gradient(135deg,#f093fb,#f5576c)',
+  'linear-gradient(135deg,#4facfe,#00f2fe)',
+  'linear-gradient(135deg,#43e97b,#38f9d7)',
+  'linear-gradient(135deg,#fa709a,#fee140)',
+  'linear-gradient(135deg,#a18cd1,#fbc2eb)',
+  'linear-gradient(135deg,#fccb90,#d57eeb)',
+  'linear-gradient(135deg,#0ea5e9,#6366f1)',
+]
+const getLogoBg = (name) => {
+  if (!name) return LOGO_COLORS[0]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return LOGO_COLORS[Math.abs(hash) % LOGO_COLORS.length]
 }
 
-const setRate = (id, type) => {
-  const item = list.value.find(i => i.id === id)
-  if (!item) return
-  if (type === '好评') item.good++
-  if (type === '中评') item.medium++
-  if (type === '差评') item.bad++
+// 解析 tags 逗号字符串为数组
+const parseTags = (tags) => {
+  if (!tags) return []
+  return tags.split(',').map(t => t.trim()).filter(Boolean)
 }
+
+// 加载标签
+const loadTags = async () => {
+  try {
+    const res = await apiWebsiteTags()
+    if (res?.code === 200) {
+      tagOptions.value = (res.data || []).map(t => ({
+        label: t.tagName,
+        value: t.tagName,
+      }))
+    }
+  } catch (e) {
+    console.error('加载标签失败', e)
+  }
+}
+
+// 加载网站列表
+const loadList = async () => {
+  loading.value = true
+  try {
+    let rows = []
+    let totalCount = 0
+
+    if (queryParams.isFollowing) {
+      // 我的收藏走专用接口 GET /website/Favorites
+      const res = await apiWebsiteMyFavorites(queryParams.pageNum, queryParams.pageSize)
+      if (res?.code === 200) {
+        const data = res.data || {}
+        // 收藏列表字段名与普通列表不同，做映射统一
+        rows = (data.rows || []).map(item => ({
+          id: item.websiteId || item.id,
+          name: item.websiteName || item.name,
+          url: item.websiteUrl || item.url,
+          description: item.websiteDescription || item.description,
+          logoUrl: item.logoUrl || null,
+          tags: item.tags || null,
+          clickCount: item.clickCount || 0,
+          collectionCount: item.collectionCount || 0,
+          goodCount: item.goodCount || 0,
+          midCount: item.midCount || 0,
+          badCount: item.badCount || 0,
+          ratingScore: item.ratingScore || null,
+          no: item.no || null,
+          collectionFlag: 1,
+          myRatingType: item.myRatingType || null,
+        }))
+        totalCount = data.total || 0
+      } else {
+        const { message } = createDiscreteApi(['message'])
+        message.error(res?.msg || '加载收藏列表失败')
+      }
+    } else {
+      const body = {
+        pageNum: queryParams.pageNum,
+        pageSize: queryParams.pageSize,
+        websiteName: queryParams.websiteName || undefined,
+        tagNames: queryParams.tagNames?.length ? queryParams.tagNames : undefined,
+      }
+      const res = await apiWebsiteList(body)
+      if (res?.code === 200) {
+        const data = res.data || {}
+        rows = data.rows || []
+        totalCount = data.total || 0
+      } else {
+        const { message } = createDiscreteApi(['message'])
+        message.error(res?.msg || '加载失败')
+      }
+    }
+
+    websiteList.value = rows.map(item => ({
+      ...item,
+      // collectionFlag=1 表示当前用户已收藏；我的收藏列表里的条目默认已收藏
+      isFavorite: item.collectionFlag === 1 || queryParams.isFollowing,
+      // myRatingType 表示当前用户对该网站的评价类型（1好评/2中评/3差评）
+      myRating: item.myRatingType || null,
+    }))
+    total.value = totalCount
+  } catch (e) {
+    console.error('加载网站列表失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleSearch = () => {
+  queryParams.pageNum = 1
+  loadList()
+}
+
+const handlePageChange = (page) => {
+  queryParams.pageNum = page
+  loadList()
+}
+
+// 点击访问
+const handleOpen = async (item) => {
+  // 先记录点击，失败不影响跳转
+  try { await apiWebsiteClick(item.id) } catch {}
+  item.clickCount = (item.clickCount || 0) + 1
+  window.open(item.url, '_blank')
+}
+
+// 收藏 / 取消收藏
+const handleFavorite = async (item) => {
+  const { message } = createDiscreteApi(['message'])
+  const wasFavorite = item.isFavorite
+  item.isFavorite = !wasFavorite
+  item.collectionCount = wasFavorite
+    ? Math.max(0, (item.collectionCount || 0) - 1)
+    : (item.collectionCount || 0) + 1
+  try {
+    const res = wasFavorite
+      ? await apiWebsiteCancelFavorite(item.id)
+      : await apiWebsiteFavorite(item.id)
+    if (res?.code === 200) {
+      message.success(wasFavorite ? '已取消收藏' : '收藏成功')
+    } else {
+      // 回滚
+      item.isFavorite = wasFavorite
+      item.collectionCount = wasFavorite
+        ? (item.collectionCount || 0) + 1
+        : Math.max(0, (item.collectionCount || 0) - 1)
+      message.error(res?.msg || '操作失败')
+    }
+  } catch {
+    item.isFavorite = wasFavorite
+    message.error('请求失败')
+  }
+}
+
+// 提交评价
+const handleRating = async (item, ratingType) => {
+  const { message } = createDiscreteApi(['message'])
+  const oldRating = item.myRating
+  // 同一评价再次点击不重复提交
+  if (oldRating === ratingType) return
+
+  const countKey = { 1: 'goodCount', 2: 'midCount', 3: 'badCount' }
+  // 乐观更新：先减掉旧评价计数，再加新评价计数
+  if (oldRating) {
+    item[countKey[oldRating]] = Math.max(0, (item[countKey[oldRating]] || 0) - 1)
+  }
+  item[countKey[ratingType]] = (item[countKey[ratingType]] || 0) + 1
+  item.myRating = ratingType
+
+  try {
+    const res = await apiWebsiteRating(item.id, ratingType)
+    if (res?.code === 200) {
+      message.success('评价成功')
+      // 后端 goodCount/midCount/badCount 已实时更新，重新拉列表同步真实数据
+      await loadList()
+    } else if (res?.msg?.includes('已经评价')) {
+      // 后端说已评价过：保留高亮状态，不回滚，静默处理
+    } else {
+      // 其他错误：回滚乐观更新
+      item.myRating = oldRating
+      if (oldRating) {
+        item[countKey[oldRating]] = (item[countKey[oldRating]] || 0) + 1
+      }
+      item[countKey[ratingType]] = Math.max(0, (item[countKey[ratingType]] || 0) - 1)
+      message.error(res?.msg || '评价失败')
+    }
+  } catch (e) {
+    const errMsg = e?.data?.msg || e?.message || ''
+    if (errMsg.includes('已经评价')) {
+      // 同上，已评价过，保留高亮
+      return
+    }
+    // 其他异常：回滚
+    item.myRating = oldRating
+    if (oldRating) {
+      item[countKey[oldRating]] = (item[countKey[oldRating]] || 0) + 1
+    }
+    item[countKey[ratingType]] = Math.max(0, (item[countKey[ratingType]] || 0) - 1)
+    message.error('请求失败')
+  }
+}
+
+const goCreate = () => navigateTo('/usefull/create')
+
+onMounted(() => {
+  loadTags()
+  loadList()
+})
 </script>
 
 <style scoped>
-/* 页面容器 */
-.page-wrapper {
+.website-container {
   width: 100%;
-  padding: 24px 20px;
+  padding: 20px;
   box-sizing: border-box;
-  background: #f8f9fa;
+  background: #f5f7fa;
   min-height: calc(100vh - 40px);
 }
 
-/* 面包屑 */
-.breadcrumb-box {
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-/* 搜索框 */
-.search-box {
-  margin-bottom: 24px;
-  background: #fff;
-  padding: 16px 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-/* 列表容器 */
-.records-list {
-  width: 100%;
+/* 内容区 */
+.website-content {
+  position: relative;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e8e8e8;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   overflow: hidden;
 }
 
-/* 表头 */
-.record-header {
+/* 加载遮罩 */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  height: 60px;
-  padding: 0 24px;
-  background: #f5f7fa;
-  border-bottom: 1px solid #e8e8e8;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  justify-content: center;
+  background: rgba(255,255,255,0.7);
+  z-index: 10;
 }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* 列表项 */
-.record-item {
-  display: flex;
-  align-items: center;
-  height: 64px;
-  padding: 0 24px;
+/* 列表 */
+.website-row-list { width: 100%; }
+
+.website-item-row {
   border-bottom: 1px solid #f0f0f0;
-  transition: background 0.2s;
+  transition: background 0.15s;
+}
+.website-item-row:last-child { border-bottom: none; }
+.website-item-row:hover { background: #f9fafc; }
+
+/* 主内容行 */
+.website-row-main {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  gap: 16px;
+  min-height: 72px;
 }
 
-.record-item:last-child { border-bottom: none; }
-.record-item:hover { background: #f9fafc; }
+/* Logo */
+.website-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.logo-placeholder {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 
-/* 列宽 */
-.name-col  { width: 18%; }
-.desc-col  { width: 28%; }
-.action-col{ width: 22%; }
-.status-col{ width: 15%; }
-.rate-col  { width: 17%; display: flex; gap: 2px; align-items: center; }
-
-/* 统一所有列字体：完全一样 */
-.record-col {
-  font-size: 14px;
-  font-weight: 400;
-  color: #333;
+/* 信息区 */
+.website-info {
+  flex: 1;
+  min-width: 0;
+}
+.website-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.website-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+.website-no {
+  font-size: 11px;
+  color: #aaa;
+  background: #f5f5f5;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.website-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tag-item {
+  background: #f0f7ff !important;
+  color: #3b82f6 !important;
+  font-size: 11px;
+}
+.website-desc {
+  font-size: 13px;
+  color: #666;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 480px;
 }
 
-/* 按钮间距 */
-:deep(.ml-1) { margin-left: 2px; }
+/* 统计 */
+.website-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.meta-item {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+}
+.meta-item.score { color: #f59e0b; font-weight: 500; }
+
+/* 操作按钮 */
+.website-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.action-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.action-btn:hover { border-color: #18a058; color: #18a058; }
+.action-btn.vote.good:hover, .action-btn.vote.good.active { border-color: #18a058; color: #18a058; background: #f0fdf4; }
+.action-btn.vote.mid:hover,  .action-btn.vote.mid.active  { border-color: #f59e0b; color: #f59e0b; background: #fffbeb; }
+.action-btn.vote.bad:hover,  .action-btn.vote.bad.active  { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+.action-btn.favorite { border-color: #d9d9d9; }
+.action-btn.favorite:hover, .action-btn.favorite.active {
+  border-color: #f59e0b; color: #f59e0b; background: #fffbeb;
+}
+.action-btn.open {
+  background: #18a058;
+  color: #fff;
+  border-color: #18a058;
+  font-weight: 500;
+}
+.action-btn.open:hover { background: #0e7a3e; border-color: #0e7a3e; }
+
+/* 新增按钮 */
+.btn-create {
+  background: #18a058;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.btn-create:hover { background: #0e7a3e; }
+
+/* 空状态 */
+.empty-placeholder {
+  padding: 60px 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* 分页 */
+.pagination-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  border-top: 1px solid #f0f0f0;
+}
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .name-col{width:18%;}.desc-col{width:24%;}.action-col{width:22%;}.status-col{width:16%;}.rate-col{width:20%;}
-  .page-wrapper { padding: 16px 12px; }
-  .record-header, .record-item { padding: 0 16px; }
+  .website-container { padding: 12px; }
+  .website-row-main { flex-wrap: wrap; padding: 12px 14px; }
+  .website-meta { flex-direction: row; min-width: unset; }
+  .website-actions { flex-wrap: wrap; }
+  .website-desc { max-width: 100%; }
 }
 </style>

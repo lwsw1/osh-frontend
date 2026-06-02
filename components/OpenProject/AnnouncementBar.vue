@@ -4,8 +4,12 @@
     <span class="bar-label">🆕 新项目</span>
 
     <!-- 滚动文字区域 -->
-    <div class="bar-scroll-wrap">
-      <div class="bar-scroll" :style="{ animationDuration: scrollDuration }">
+
+    <div class="bar-scroll-wrap"
+         @mouseenter="paused = true"
+         @mouseleave="paused = false"
+    >
+      <div class="bar-scroll" :style="{ animationDuration: scrollDuration, animationPlayState: paused ? 'paused' : 'running' }">
         <span
           v-for="(item, idx) in announcements"
           :key="item.id"
@@ -35,6 +39,8 @@ import { computed, ref, onMounted } from 'vue'
 import { fetchConfig } from '~/composables/useHttp'
 
 const { projectAnnouncements } = useWebSocket()
+
+const paused = ref(false)
 
 // 从 MySQL 加载的公告
 const dbAnnouncements = ref([])

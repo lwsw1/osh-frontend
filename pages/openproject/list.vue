@@ -51,7 +51,7 @@
               </div>
             </div>
 
-            <div class="card-body">
+            <div class="card-body" v-show="expandedId !== item.id">
               <p class="project-desc">{{ item.projectDesc || '暂无描述' }}</p>
             </div>
 
@@ -177,7 +177,7 @@ import {
 } from 'naive-ui'
 import { ref, onMounted, h } from 'vue'
 
-const defaultCover = 'https://picsum.photos/200/200'
+const defaultCover = 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
 
 const projectList  = ref([])
 const tagOptions   = ref([])
@@ -346,27 +346,29 @@ onMounted(() => {
 
 /* 展开的卡片占满整行 */
 .project-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
   cursor: pointer;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: all 0.25s ease;
   overflow: hidden;
 }
-.project-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.09); border-color: #d0d7de; }
+.project-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-color: #94a3b8; transform: translateY(-1px); }
 .project-card.expanded {
-  border-color: #4096ff;
-  box-shadow: 0 4px 16px rgba(64,150,255,0.15);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 20px rgba(59,130,246,0.12);
+  background: linear-gradient(135deg, #f0f7ff 0%, #f8fafc 100%);
+  transform: none;
 }
-.project-card.archived { opacity: 0.75; }
+.project-card.archived { opacity: 0.7; }
 
 /* 卡片内部：横向三段布局 */
 .card-inner {
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-rows: auto auto;
-  padding: 16px 20px;
+  padding: 18px 24px;
   gap: 0;
 }
 
@@ -381,26 +383,26 @@ onMounted(() => {
 }
 .title-row { display: flex; align-items: center; gap: 10px; }
 .title-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.project-title { font-size: 16px; font-weight: 600; color: #333; }
+.project-title { font-size: 16px; font-weight: 600; color: #1a202c; }
 .expand-icon {
   display: flex;
   align-items: center;
-  color: #bbb;
+  color: #cbd5e0;
   transition: transform 0.25s ease, color 0.25s ease;
   flex-shrink: 0;
 }
-.expand-icon.open { transform: rotate(90deg); color: #4096ff; }
-.project-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.expand-icon.open { transform: rotate(90deg); color: #3b82f6; }
+.project-tags { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 28px; }
 .project-tag { margin: 0; }
 
 /* body 和 footer 横向并排 */
 .card-body {
   grid-column: 1;
   grid-row: 2;
-  padding: 10px 0 0;
+  padding: 8px 0 0 28px;
 }
 .project-desc {
-  font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 0;
+  font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 0;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 
@@ -415,10 +417,10 @@ onMounted(() => {
   padding: 0 0 0 28px;
   border-top: none;
   background: transparent;
-  min-width: 160px;
+  min-width: 140px;
 }
 .author-info { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-.author-name { color: #666; }
+.author-name { color: #64748b; }
 
 /* 右侧：stats 纵向 + 收藏按钮 */
 .footer-right {
@@ -431,38 +433,38 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
-  font-size: 13px;
-  color: #555;
+  gap: 3px;
+  font-size: 12px;
+  color: #64748b;
 }
 .stat-item { display: flex; align-items: center; justify-content: flex-end; }
-.last-commit { color: #9ca3af; font-size: 12px; }
+.last-commit { color: #9ca3af; font-size: 11px; }
 
 /* 展开详情区 */
 .card-detail {
-  border-top: 1px solid #e8f0fe;
-  background: #f8fbff;
+  border-top: 1px solid #edf2f7;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   padding: 20px 24px;
 }
 .detail-loading { display: flex; align-items: center; gap: 8px; color: #888; font-size: 13px; }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 1fr 260px;
-  gap: 24px;
+  grid-template-columns: 1fr 240px;
+  gap: 28px;
 }
 @media (max-width: 700px) { .detail-grid { grid-template-columns: 1fr; } }
 
 .detail-section-title {
-  font-size: 12px; font-weight: 600; color: #888;
-  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;
+  font-size: 11px; font-weight: 600; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px;
 }
-.detail-desc { font-size: 14px; color: #444; line-height: 1.8; white-space: pre-wrap; margin: 0; }
+.detail-desc { font-size: 14px; color: #334155; line-height: 1.8; white-space: pre-wrap; margin: 0; }
 
 .detail-meta { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .dm-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-.dm-label { color: #888; }
-.dm-value { color: #333; font-weight: 500; }
+.dm-label { color: #94a3b8; }
+.dm-value { color: #1e293b; font-weight: 500; }
 .dm-value.star { color: #f59e0b; }
 .dm-value.muted { color: #9ca3af; }
 

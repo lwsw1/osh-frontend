@@ -38,7 +38,7 @@ function isAuthExpiredError(err){
         || /认证失败/.test(msg)
         || /登录已过期/.test(msg)
         || /用户未登录/.test(msg)
-        || /请先登录/.test(msg)
+        || /未登录或Token已过期/.test(msg)
 }
 
 function resolveToken() {

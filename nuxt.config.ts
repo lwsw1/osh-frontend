@@ -25,9 +25,12 @@ export default defineNuxtConfig({
     '/api/qna/**': {
       proxy: 'http://localhost:8081/api/qna/**'
     },
-    '/api/public/**': {
-      proxy: 'http://localhost:8081/public/**'
-    },
+    // @deprecated 2026-05-31 后端已统一去除 public 前缀（/pc/public/feedback -> /pc/feedback），
+    // 前端 composables/assistant.js 已全部切到新路径，本规则保留作为过渡期标记，
+    // 确认线上无残留请求后可整段删除。
+    // '/api/public/**': {
+    //   proxy: 'http://localhost:8081/public/**'
+    // },
     '/api/**': {
       proxy: 'http://localhost:8081/pc/**'
     }
@@ -41,11 +44,13 @@ export default defineNuxtConfig({
         changeOrigin: true,
         prependPath: true
       },
-      '/api/public': {
-        target: 'http://localhost:8081/public',
-        changeOrigin: true,
-        prependPath: true
-      },
+      // @deprecated 2026-05-31 后端已统一去除 public 前缀，前端不再走 /api/public，
+      // 通用规则 /api -> /pc 已能覆盖。保留作为过渡期标记，确认无残留请求后可整段删除。
+      // '/api/public': {
+      //   target: 'http://localhost:8081/public',
+      //   changeOrigin: true,
+      //   prependPath: true
+      // },
       '/api': {
         target: 'http://localhost:8081/pc',
         changeOrigin: true,

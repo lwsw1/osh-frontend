@@ -150,7 +150,8 @@ const onSubmit = () => {
 useEnterEvent(() => onSubmit())
 
 definePageMeta({
-    layout: "login"
+    layout: "login",
+    title: "注册"
 })
 </script>
 

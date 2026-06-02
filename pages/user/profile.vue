@@ -20,7 +20,8 @@
                             :headers="uploadHeaders"
                             name="file"
                             :show-file-list="false"
-                            :max="1"
+                            :default-file-list="fileList"
+                            @before-upload="onBeforeUpload"
                             @finish="onAvatarUploaded"
                             @error="onAvatarError"
                         >
@@ -32,6 +33,22 @@
                     <span class="avatar-tip">支持 JPG、PNG、GIF、WebP，最大 3MB</span>
                 </div>
             </div>
+        </div>
+
+        <n-divider />
+
+        <!-- 当前角色 -->
+        <div class="roles-section">
+            <div class="roles-section-label">我的角色</div>
+            <div class="roles-list" v-if="userRoles.length > 0">
+                <div v-for="(r, idx) in userRoles" :key="idx" class="role-item">
+                    <n-tag :type="roleTagType(r.roleLevel)" size="small">{{ r.roleName }}</n-tag>
+                    <span v-if="r.expireTime" class="role-expire">
+                        {{ formatExpireTime(r.expireTime) }}
+                    </span>
+                </div>
+            </div>
+            <span v-else class="roles-empty">暂无角色信息</span>
         </div>
 
         <n-divider />
@@ -130,6 +147,7 @@ const defaultAvatar = DEFAULT_AVATAR
 
 // ── 头像（独立逻辑） ──
 const avatarUploading = ref(false)
+const fileList = ref([])
 const currentAvatar = computed(() => user.value?.avatar || defaultAvatar)
 
 // 上传配置：直接对接后端 /pc/user/upload_avatar
@@ -145,12 +163,17 @@ const { action: uploadAction, headers: uploadHeaders } = (() => {
     }
 })()
 
+function onBeforeUpload() {
+    avatarUploading.value = true
+    return true
+}
+
 function onAvatarUploaded({ event }) {
     avatarUploading.value = false
+    fileList.value = []
     try {
         const res = JSON.parse(event.target.response)
         if (res.code === 200 && res.data) {
-            // 后端返回新头像 URL，更新全局 user
             user.value = { ...user.value, avatar: res.data }
             const { message } = createDiscreteApi(['message'])
             message.success('头像更新成功')
@@ -166,9 +189,46 @@ function onAvatarUploaded({ event }) {
 
 function onAvatarError() {
     avatarUploading.value = false
+    fileList.value = []
     const { message } = createDiscreteApi(['message'])
     message.error('头像上传失败')
 }
+
+// ── 用户角色 ──
+const userRoles = ref([])
+
+function roleTagType(level) {
+    if (level >= 5) return 'error'
+    if (level >= 3) return 'warning'
+    return 'info'
+}
+
+function formatExpireTime(expireTime) {
+    if (!expireTime) return ''
+    const str = String(expireTime)
+    if (str.startsWith('2099')) return '永久有效'
+    const d = new Date(str)
+    if (isNaN(d.getTime())) return '到期: ' + str.substring(0, 16)
+    return '到期: ' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')
+}
+
+async function loadUserRoles() {
+    try {
+        const token = useCookie('token')
+        const res = await $fetch(fetchConfig.baseURL + '/user/roles', {
+            headers: {
+                appid: fetchConfig.headers.appid,
+                token: token.value,
+                Authorization: `Bearer ${token.value}`,
+            }
+        })
+        userRoles.value = res?.data || res || []
+    } catch {
+        userRoles.value = []
+    }
+}
+
+onMounted(() => { loadUserRoles() })
 
 // ── 基本信息表单（不含头像） ──
 const form = reactive({
@@ -286,5 +346,43 @@ const onSubmit = () => {
 
 .submit-btn {
     min-width: 120px;
+}
+
+/* 角色区域 */
+.roles-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 0.25rem;
+}
+
+.roles-section-label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    color: #333;
+    padding-top: 0.25rem;
+}
+
+.roles-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.role-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.role-expire {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.roles-empty {
+    font-size: 0.8rem;
+    color: #9ca3af;
 }
 </style>

@@ -37,20 +37,38 @@
         <n-form-item label="GitHub">
           <n-input v-model:value="formValue.githubUrl" placeholder="可选，GitHub 地址" />
         </n-form-item>
+      </div>
 
-        <n-form-item label="工具标签">
+      <n-form-item label="工具标签">
+        <div class="tag-editor">
           <n-select
             v-model:value="formValue.tags"
             multiple
             filterable
             tag
             :max-tag-count="3"
-            placeholder="选择已有标签或输入新标签后回车"
-            :options="tagOptions"
+            placeholder="选择推荐标签，或输入自定义标签后回车（最多3个）"
+            :options="tagSelectOptions"
+            :on-create="onCreateTag"
             @update:value="handleTagsChange"
           />
-        </n-form-item>
-      </div>
+          <div v-if="suggestTagNames.length > 0" class="tag-suggest">
+            <n-text depth="3" class="tag-suggest-title">推荐标签：</n-text>
+            <n-space class="tag-suggest-list" :wrap="true">
+              <n-tag
+                v-for="tag in suggestTagNames"
+                :key="tag"
+                :bordered="false"
+                class="tag-suggest-item"
+                :type="formValue.tags.includes(tag) ? 'success' : 'default'"
+                @click="addSuggestTag(tag)"
+              >
+                {{ tag }}
+              </n-tag>
+            </n-space>
+          </div>
+        </div>
+      </n-form-item>
 
       <div class="form-grid">
         <n-form-item label="资源类型">
@@ -104,9 +122,9 @@ import { computed, reactive, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import {
   NModal, NForm, NFormItem, NInput, NSelect, NSpace,
-  NInputNumber, NButton,
+  NInputNumber, NButton, NTag, NText,
 } from 'naive-ui';
-import { apiSaveTool, apiUpdateTool } from '~/composables/Api/Tool/tool';
+import { apiRecommendToolTags, apiSaveTool, apiUpdateTool } from '~/composables/Api/Tool/tool';
 
 const props = defineProps({
   show: Boolean,
@@ -117,6 +135,7 @@ const emit = defineEmits(['update:show', 'success']);
 
 const { message } = createDiscreteApi(['message']);
 const loading = ref(false);
+const suggestTagNames = ref([]);
 
 const formValue = reactive({
   id: null,
@@ -136,21 +155,54 @@ const formValue = reactive({
 const isEdit = computed(() => !!props.editData?.id);
 const modalTitle = computed(() => isEdit.value ? '修改工具' : '新增工具');
 const submitText = computed(() => isEdit.value ? '保存修改' : '保存并发布');
+const tagSelectOptions = computed(() => {
+  const options = Array.isArray(props.tagOptions) ? [...props.tagOptions] : [];
+  const existingValues = new Set(options.map((item) => String(item.value)));
+  formValue.tags.forEach((tag) => {
+    const value = String(tag);
+    if (!existingValues.has(value)) {
+      options.push({ label: value, value });
+      existingValues.add(value);
+    }
+  });
+  suggestTagNames.value.forEach((tag) => {
+    if (!existingValues.has(tag)) {
+      options.push({ label: tag, value: tag });
+      existingValues.add(tag);
+    }
+  });
+  return options;
+});
 
 const resourceTypeOptions = [
   { label: '免费', value: 'FREE' },
   { label: '付费套餐', value: 'CASH_ONLY' },
+  { label: '现金&积分', value: 'CASH_POINT' },
   { label: 'VIP免费', value: 'VIP' },
   { label: '小班免费', value: 'SMALL_CLASS' },
   { label: '内部免费', value: 'INTERNAL' },
 ];
 
 const MAX_TAG_COUNT = 3;
+const MAX_RECOMMEND_TAG_COUNT = 5;
 const paidResourceTypes = ['CASH_ONLY', 'CASH_POINT'];
 const showPackageEditor = computed(() => paidResourceTypes.includes(formValue.resourceType));
 
+const resourceTypeNumMap = {
+  0: 'FREE',
+  1: 'FREE',
+  2: 'CASH_ONLY',
+  3: 'CASH_POINT',
+  4: 'VIP',
+  5: 'SMALL_CLASS',
+  6: 'INTERNAL',
+};
+
 watch(() => props.show, (value) => {
-  if (value) resetForm();
+  if (value) {
+    resetForm();
+    loadRecommendTags();
+  }
 });
 
 watch(() => props.editData, () => {
@@ -167,10 +219,22 @@ function resetForm() {
   formValue.githubUrl = source.githubUrl || source.github_url || '';
   formValue.status = source.status ?? 1;
   formValue.remark = source.remark || '';
-  formValue.resourceType = source.resourceType || source.resource_type || 'FREE';
+  formValue.resourceType = normalizeResourceType(source.resourceType || source.resource_type || 'FREE');
   formValue.level = Number(source.level || 1);
   formValue.tags = Array.isArray(source.tags) ? [...source.tags] : [];
   formValue.packages = normalizePackages(source.packages);
+}
+
+function normalizeResourceType(resourceType) {
+  if (resourceType == null || resourceType === '') {
+    return 'FREE';
+  }
+  const value = String(resourceType).trim();
+  if (['FREE', 'CASH_ONLY', 'CASH_POINT', 'VIP', 'SMALL_CLASS', 'INTERNAL'].includes(value)) {
+    return value;
+  }
+  const mappedValue = resourceTypeNumMap[Number(value)];
+  return mappedValue || value;
 }
 
 function createEmptyPackage() {
@@ -210,6 +274,38 @@ function handleTagsChange(value) {
   if (Array.isArray(value) && value.length > MAX_TAG_COUNT) {
     formValue.tags = value.slice(0, MAX_TAG_COUNT);
     message.warning(`工具标签最多添加 ${MAX_TAG_COUNT} 个`);
+    return;
+  }
+  formValue.tags = Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+}
+
+function onCreateTag(inputVal) {
+  const tag = (inputVal || '').trim();
+  return tag ? { label: tag, value: tag } : false;
+}
+
+function addSuggestTag(tag) {
+  if (!tag || formValue.tags.includes(tag)) {
+    return;
+  }
+  if (formValue.tags.length >= MAX_TAG_COUNT) {
+    message.warning(`工具标签最多添加 ${MAX_TAG_COUNT} 个`);
+    return;
+  }
+  formValue.tags.push(tag);
+}
+
+async function loadRecommendTags() {
+  try {
+    const res = await apiRecommendToolTags();
+    const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+    suggestTagNames.value = list
+      .map((item) => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean)
+      .slice(0, MAX_RECOMMEND_TAG_COUNT);
+  } catch (err) {
+    console.error('加载工具推荐标签失败:', err);
+    suggestTagNames.value = [];
   }
 }
 
@@ -293,6 +389,21 @@ async function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.tag-editor {
+  width: 100%;
+}
+.tag-suggest {
+  margin-top: 10px;
+}
+.tag-suggest-title {
+  font-size: 12px;
+}
+.tag-suggest-list {
+  margin-top: 6px;
+}
+.tag-suggest-item {
+  cursor: pointer;
 }
 .package-row {
   display: grid;

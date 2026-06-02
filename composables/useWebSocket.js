@@ -82,11 +82,18 @@ export function useWebSocket() {
           createTime: payload.createTime || new Date().toISOString(),
           read: false,
         }
-        notifications.value.unshift(msg)
-        if (notifications.value.length > 50) notifications.value = notifications.value.slice(0, 50)
-        unreadCount.value++
 
-        // 开源项目广播：额外写入公告列表
+        // 广播类型消息：不推送到小铃铛通知列表
+        const BROADCAST_TYPES = ['NEW_OPEN_PROJECT', 'TOOL_USER_NOTICE_REFRESH']
+        const isBroadcast = BROADCAST_TYPES.includes(msg.type)
+
+        if (!isBroadcast) {
+          notifications.value.unshift(msg)
+          if (notifications.value.length > 50) notifications.value = notifications.value.slice(0, 50)
+          unreadCount.value++
+        }
+
+        // 开源项目广播：写入公告列表
         if (msg.type === 'NEW_OPEN_PROJECT') {
           projectAnnouncements.value.unshift(msg)
           if (projectAnnouncements.value.length > 10) {

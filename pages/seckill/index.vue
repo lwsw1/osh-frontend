@@ -119,17 +119,31 @@
           :sessions="sessions"
         />
 
-        <!-- 操作栏：搜索 + 管理按钮 -->
+        <!-- 操作栏：搜索 + 标签筛选 + 管理按钮 -->
         <div class="action-bar">
-          <div class="search-wrap">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input
-              v-model="searchKeyword"
-              class="search-input"
-              placeholder="搜索秒杀商品名称..."
-              @keyup.enter="loadGoods"
-            />
-            <button class="search-btn" @click="loadGoods">搜索</button>
+          <div class="search-filter-wrap">
+            <div class="search-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                v-model="searchKeyword"
+                class="search-input"
+                placeholder="搜索秒杀商品名称..."
+                @keyup.enter="loadGoods"
+              />
+              <button class="search-btn" @click="loadGoods">搜索</button>
+            </div>
+            <ClientOnly>
+              <n-select
+                v-model:value="selectedTags"
+                :options="tagSelectOptions"
+                multiple
+                filterable
+                clearable
+                placeholder="选择标签筛选"
+                class="tag-select"
+                @update:value="loadGoods"
+              />
+            </ClientOnly>
           </div>
           <!-- 管理操作按钮（权限控制） -->
           <div v-if="hasAnyPermission('seckill:activity:add','seckill:activity:edit','seckill:activity:remove','seckill:activity:status','seckill:goods:list','seckill:order:list')" class="manage-btns">
@@ -242,7 +256,7 @@
 </template>
 
 <script setup>
-import { createDiscreteApi } from 'naive-ui'
+import { createDiscreteApi, NSelect } from 'naive-ui'
 
 // ── 秒杀模块入口页 ───────────────────────────────────────────
 useHead({ title: '限时秒杀 · IT精品课' })
@@ -421,6 +435,27 @@ const typeOptions = [
 ]
 const filterType = ref('')
 const searchKeyword = ref('')
+const selectedTags = ref([])
+
+// 从当前活动的 items 中收集所有不重复的标签
+const availableTags = computed(() => {
+  const items = activeActivity.value?.items || []
+  const tagSet = new Set()
+  items.forEach(item => (item.tagNames || []).forEach(t => tagSet.add(t)))
+  return [...tagSet].sort()
+})
+
+// n-select 需要的 options 格式
+const tagSelectOptions = computed(() =>
+  availableTags.value.map(t => ({ label: t, value: t }))
+)
+
+function toggleTag(tag) {
+  const idx = selectedTags.value.indexOf(tag)
+  if (idx === -1) selectedTags.value.push(tag)
+  else selectedTags.value.splice(idx, 1)
+  loadGoods()
+}
 
 // ── 商品列表（从当前活动的 items 中取） ────────────────────
 const goodsList = ref([])
@@ -431,6 +466,11 @@ async function loadGoods(silent = false) {
   let items = activeActivity.value?.items || []
   if (filterType.value !== '') items = items.filter(g => g.goodsType === filterType.value)
   if (searchKeyword.value) items = items.filter(g => g.title?.includes(searchKeyword.value))
+  if (selectedTags.value.length) {
+    items = items.filter(g =>
+      selectedTags.value.every(tag => (g.tagNames || []).includes(tag))
+    )
+  }
   goodsList.value = items
   console.log('[seckill] goodsList:', goodsList.value.length, 'pending will be:', silent ? 'unchanged' : false)
   if (!silent) pending.value = false
@@ -709,8 +749,12 @@ function handleBuy(item) {
   box-shadow: none;
   border: 1px solid #f3f4f6;
 }
+.search-filter-wrap {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0;
+}
 .search-wrap {
-  display: flex; align-items: center; flex: 1; max-width: 400px;
+  display: flex; align-items: center; flex: 1; max-width: 300px;
   background: #f7f7f7; border: 1.5px solid #e5e7eb;
   border-radius: 24px; padding: 0 16px;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -732,7 +776,8 @@ function handleBuy(item) {
   transition: background 0.15s, transform 0.1s;
 }
 .search-btn:hover { background: #c0392b; transform: translateY(-1px); }
-.manage-btns { display: flex; gap: 8px; margin-left: 8px; }
+.tag-select { width: 180px; flex-shrink: 0; }
+.manage-btns { display: flex; gap: 8px; margin-left: 8px; flex-shrink: 0; }
 .manage-btn {
   display: flex; align-items: center; gap: 5px;
   padding: 7px 16px; border-radius: 8px;
