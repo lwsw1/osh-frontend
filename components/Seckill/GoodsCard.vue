@@ -33,6 +33,14 @@
         <span>限购 {{ item.limitPerUser > 0 ? item.limitPerUser + '件' : '不限' }}</span>
       </div>
 
+      <!-- 资源编号 -->
+      <div class="card-no" v-if="item.no">编号：{{ item.no }}</div>
+
+      <!-- 标签 -->
+      <div class="card-tags" v-if="item.tagNames && item.tagNames.length">
+        <span class="card-tag" v-for="tag in item.tagNames" :key="tag">{{ tag }}</span>
+      </div>
+
       <div class="card-divider" />
 
       <!-- 价格区 -->
@@ -68,8 +76,9 @@ const props = defineProps({
 const emit = defineEmits(['click', 'buy', 'toggle'])
 
 // 按钮状态（基于 availableStock 判断是否售罄）
+// 注意：不再用 is_purchased 永久禁用按钮
+// 新版支持累计购买，用户支付成功后只要还有剩余限购额度就可以继续购买
 const btnState = computed(() => {
-  if (props.item.is_purchased) return 'purchased'
   // totalStock=0 表示不限量，availableStock=0 且 totalStock>0 表示售罄
   if (props.item.totalStock > 0 && props.item.availableStock <= 0) return 'soldout'
   return 'active'
@@ -77,17 +86,15 @@ const btnState = computed(() => {
 
 const btnText = computed(() => {
   switch (btnState.value) {
-    case 'purchased': return '去学习'
-    case 'soldout':   return `¥${props.item.originPrice} 原价购买`
-    default:          return '立即抢购'
+    case 'soldout': return `¥${props.item.originPrice} 原价购买`
+    default:        return '立即抢购'
   }
 })
 
 const btnClass = computed(() => ({
-  'btn-active':    btnState.value === 'active',
-  'btn-pending':   btnState.value === 'pending',
-  'btn-soldout':   btnState.value === 'soldout',
-  'btn-purchased': btnState.value === 'purchased',
+  'btn-active':  btnState.value === 'active',
+  'btn-pending': btnState.value === 'pending',
+  'btn-soldout': btnState.value === 'soldout',
 }))
 
 function handleBuy() { emit('buy', props.item) }
@@ -212,6 +219,16 @@ function handleCardClick() {
 }
 .meta-divider { color: #ddd; }
 .card-info { font-size: 11px; color: #999; margin-bottom: 4px; }
+.card-no   { font-size: 11px; color: #bbb; margin-top: 2px; margin-bottom: 2px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; margin-bottom: 2px; }
+.card-tag  {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 600;
+}
 .info-divider { margin: 0 3px; color: #ddd; }
 .card-divider { height: 1px; background: #f5f5f5; margin: 5px 0; }
 
@@ -265,6 +282,13 @@ function handleCardClick() {
 }
 [data-theme="space"] .card-meta {
   color: #484f58 !important;
+}
+[data-theme="space"] .card-no {
+  color: #484f58 !important;
+}
+[data-theme="space"] .card-tag {
+  background: rgba(88, 166, 255, 0.1) !important;
+  color: #58a6ff !important;
 }
 [data-theme="space"] .meta-divider {
   color: rgba(48,54,61,0.8) !important;

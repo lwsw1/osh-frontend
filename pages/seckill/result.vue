@@ -94,10 +94,13 @@ import { createDiscreteApi } from 'naive-ui'
 const route = useRoute()
 const { status, title, cover, price, totalAmount, originPrice, seckillNo, payExpireTime } = route.query
 
-// 新增：从 URL 参数读取 orderNo、qrcode、payUrl（由 detail 页轮询结果传入）
+// 从 URL 参数读取 orderNo、qrcode、payUrl（由 detail 页轮询结果传入）
 // 过滤掉 "null" 字符串，避免用 null 去查支付状态
+// 注意：orderNo（支付单号）和 seckillNo（秒杀尝试号）现在是两个不同的值
+// orderNo 为空时不能用 seckillNo 兜底，两者语义不同
 const sanitize = v => (v && v !== 'null') ? v : ''
-const orderNo      = sanitize(route.query.orderNo) || sanitize(seckillNo)
+const orderNo      = sanitize(route.query.orderNo)
+const seckillNoParam = sanitize(seckillNo)
 const qrcodeParam  = sanitize(route.query.qrcode)  ? decodeURIComponent(sanitize(route.query.qrcode))  : ''
 const payUrlParam  = sanitize(route.query.payUrl)  ? decodeURIComponent(sanitize(route.query.payUrl))  : ''
 
@@ -205,12 +208,13 @@ function handlePaySuccess() {
   setTimeout(() => navigateTo('/user/buy/1', { replace: true }), 2000)
 }
 
-// ── 取消订单（接口：POST /seckill/user/order/cancel/{orderNo}）
-// 路径参数传 orderNo，后端两者现在是同一个值
+// ── 取消订单（接口：POST /seckill/user/order/cancel/{seckillNo}）
+// 路径参数必须传 seckillNo（秒杀尝试号），不能传 orderNo（支付单号）
 const cancelLoading = ref(false)
 
 async function handleCancel() {
-  if (!orderNo) return
+  // 取消接口需要 seckillNo，orderNo 是支付单号，两者不能混用
+  if (!seckillNoParam) return
 
   // 取消前先查一次最新状态，防止已支付的订单被取消
   await checkPayStatus()
@@ -233,8 +237,8 @@ async function handleCancel() {
   if (!confirmed) return
   cancelLoading.value = true
   try {
-    // 路径参数传 orderNo（后端 seckillNo 与 orderNo 现在是同一个值）
-    const res = await seckillFetch(`/seckill/user/order/cancel/${encodeURIComponent(orderNo)}`, { method: 'POST' })
+    // 路径参数传 seckillNo（秒杀尝试号），后端按此查找并取消订单
+    const res = await seckillFetch(`/seckill/user/order/cancel/${encodeURIComponent(seckillNoParam)}`, { method: 'POST' })
     if (res?.code === 200) {
       message.success('订单已取消')
       stopPayPolling()

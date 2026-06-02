@@ -10,8 +10,8 @@
         <p>您被邀请注册为：<strong>{{ inviteInfo.roleName }}</strong></p>
       </div>
 
-      <n-form-item :show-label="false">
-        <n-input :value="inviteInfo.username" disabled placeholder="用户名" />
+      <n-form-item path="username" :show-label="false">
+        <n-input v-model:value="form.username" placeholder="用户名（4-20位，字母开头，字母数字下划线）" />
       </n-form-item>
 
       <n-form-item :show-label="false">
@@ -26,7 +26,7 @@
         <n-input v-model:value="form.repassword" placeholder="确认密码" type="password" />
       </n-form-item>
 
-      <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading" :disabled="!form.password || !form.repassword">
+      <n-button class="submit-button" type="primary" @click="onSubmit" :loading="loading" :disabled="!form.username || !form.password || !form.repassword">
         确认注册
       </n-button>
     </template>
@@ -46,11 +46,20 @@ const loadError = ref('')
 const inviteInfo = ref(null)
 
 const form = reactive({
+  username: '',
   password: '',
   repassword: ''
 })
 
 const rules = {
+  username: [
+    { required: true, message: '请输入用户名' },
+    {
+      validator: (_rule, value) => /^[A-Za-z][A-Za-z0-9_]{3,19}$/.test(value),
+      message: '用户名必须是4-20位，字母开头，字母数字下划线',
+      trigger: ['input', 'blur']
+    }
+  ],
   password: [
     { required: true, message: '请设置密码' },
     {
@@ -104,6 +113,7 @@ async function onSubmit() {
         headers: { appid: fetchConfig.headers.appid },
         body: {
           token: route.query.token,
+          username: form.username,
           password: form.password,
           repassword: form.repassword
         }

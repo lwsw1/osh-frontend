@@ -7,7 +7,8 @@
         </button>
       </div>
 
-      <nav class="nav-menu">
+      <div class="nav-menu-scroll" ref="navMenuScrollRef">
+        <nav class="nav-menu">
         <template v-for="(item, index) in menus" :key="index">
           <!-- 有子菜单的项 -->
           <n-dropdown v-if="item.children" :options="getDropdownOptions(item)" @select="handleDropdownSelect" placement="bottom-start">
@@ -25,6 +26,7 @@
             v-else
             :href="item.path"
             @click.prevent="handleOpen(item.path)"
+            @mouseenter="prefetchRoute(item.path)"
             class="nav-item"
             :class="{ 'active': isMenuItemActive(item) }"
           >
@@ -32,7 +34,8 @@
             <span class="nav-text">{{ item.name }}</span>
           </a>
         </template>
-      </nav>
+        </nav>
+      </div>
 
       <div class="user-section">
         <nuxt-link class="login-link" to="/login" v-if="!user">
@@ -76,7 +79,7 @@ import {
   NAvatar,
   createDiscreteApi,
 } from 'naive-ui';
-import { h, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const user = useUser();
 const route = useRoute();
@@ -206,6 +209,62 @@ const menus = ref([
   { name: '用户管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
 ]);
 
+const SearchBarRef = ref(null);
+const navMenuScrollRef = ref(null);
+const { dialog } = createDiscreteApi(["dialog"]);
+
+// 让目标页签在 bar 上可见；若它贴着某一侧边缘，多滑出一点(peek)，
+// 把那一侧还没显示出来的相邻页签带出来，提示用户后面还有内容。
+function revealTab(targetEl) {
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer || !targetEl) return;
+
+  const peek = 64; // 多露出相邻页签的宽度
+  const cs = scrollContainer.scrollLeft;
+  const maxScrollLeft = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
+
+  // 用实时屏幕坐标计算需要滚动的距离，左右逻辑对称
+  const cRect = scrollContainer.getBoundingClientRect();
+  const eRect = targetEl.getBoundingClientRect();
+
+  let delta = 0;
+  if (eRect.right + peek > cRect.right) {
+    // 右侧被遮挡 → 往右滑，带出右边的页签
+    delta = eRect.right + peek - cRect.right;
+  } else if (eRect.left - peek < cRect.left) {
+    // 左侧被遮挡 → 往左滑，带出左边的页签
+    delta = eRect.left - peek - cRect.left;
+  } else {
+    return; // 已完整可见，不动
+  }
+
+  const next = Math.max(0, Math.min(cs + delta, maxScrollLeft));
+  if (Math.abs(next - cs) < 1) return;
+  scrollContainer.scrollTo({ left: next, behavior: 'smooth' });
+}
+
+// 跳转完成后，定位到当前激活的页签并保证其可见
+function revealActiveTab() {
+  nextTick(() => {
+    const scrollContainer = navMenuScrollRef.value;
+    if (!scrollContainer) return;
+    const activeEl = scrollContainer.querySelector('.nav-item.active');
+    if (activeEl) revealTab(activeEl);
+  });
+}
+
+function handleOpen(path) {
+  navigateTo(path);
+}
+
+// 鼠标悬停即预加载目标路由的代码块，点击时跳转更快
+function prefetchRoute(path) {
+  if (!path) return;
+  try {
+    preloadRouteComponents(path);
+  } catch (e) {}
+}
+
 onMounted(() => {
   if (!hasAnyPermission(AUDIT_MENU_PERMISSION)) {
     const auditMenuIndex = menus.value.findIndex(item => item.path === '/audit');
@@ -248,26 +307,32 @@ onMounted(() => {
     }
   }
 
-  // 用户管理：仅 level >= 4 可见
-  let isAdmin = false
-  try {
-    const roleStr = localStorage.getItem('__user_role__')
-    if (roleStr) {
-      const role = JSON.parse(roleStr)
-      isAdmin = parseInt(role.level || '0') >= 4
-    }
-  } catch {}
-  if (!isAdmin) {
+  // 用户管理：仅已登录的创始人（level >= 6）可见
+  let isFounder = false
+  if (user.value) {
+    try {
+      const roleStr = localStorage.getItem('__user_role__')
+      if (roleStr) {
+        const role = JSON.parse(roleStr)
+        isFounder = parseInt(role.level || '0') >= 6
+      }
+    } catch {}
+  }
+  if (!isFounder) {
     const adminMenuIndex = menus.value.findIndex(item => item.path === '/admin/users')
     if (adminMenuIndex !== -1) {
       menus.value.splice(adminMenuIndex, 1)
     }
   }
+
+  revealActiveTab();
 });
 
-function handleOpen(path) {
-  navigateTo(path);
-}
+watch(
+  () => route.fullPath,
+  () => revealActiveTab(),
+  { flush: 'post' }
+);
 
 // 获取下拉菜单选项
 function getDropdownOptions(item) {
@@ -320,9 +385,6 @@ const userOptions = [
   },
 ];
 
-const SearchBarRef = ref(null);
-const { dialog } = createDiscreteApi(["dialog"]);
-
 const handleSelect = (k)=>{
     switch (k) {
         case "logout":
@@ -368,12 +430,19 @@ const handleSelect = (k)=>{
 
 .container {
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
   padding: 0 24px;
   height: 60px;
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .container {
+    max-width: 100%;
+  }
 }
 
 /* Brand Section */
@@ -411,13 +480,28 @@ const handleSelect = (k)=>{
   letter-spacing: -0.02em;
 }
 
-/* Navigation Menu */
-.nav-menu {
+/* Navigation Menu - scrollable middle section */
+.nav-menu-scroll {
   flex: 1;
-  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-menu-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-menu {
+  display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 0 16px;
+  padding: 0 8px;
+  width: max-content;
+  min-width: 100%;
 }
 
 .nav-item {
@@ -471,6 +555,7 @@ const handleSelect = (k)=>{
 /* User Section */
 .user-section {
   flex-shrink: 0;
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;

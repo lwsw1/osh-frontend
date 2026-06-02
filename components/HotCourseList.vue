@@ -10,10 +10,18 @@
 </template>
 
 <script setup>
-// 保留原有业务逻辑，无修改
-let {
-    data
-} = await useHotCourseListApi()
+import { computed } from 'vue'
+
+const { data: rawData } = await useHotCourseListApi()
+
+const data = computed(() => {
+    const list = Array.isArray(rawData.value) ? rawData.value : []
+    return list.map((item) => ({
+        ...item,
+        type: 'course',
+        t_price: item.t_price ?? item.tPrice,
+    }))
+})
 </script>
 
 <style>

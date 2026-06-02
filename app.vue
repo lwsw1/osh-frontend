@@ -1,5 +1,5 @@
 <template>
-  <NConfigProvider inline-theme-disabled :theme-overrides="themeOverrides">
+  <NConfigProvider inline-theme-disabled :theme-overrides="themeOverrides" :date-locale="dateZhCN" :locale="zhCN">
     <NMessageProvider>
       <NDialogProvider>
         <NuxtLayout>
@@ -14,6 +14,7 @@
 
 <script setup>
 import { NMessageProvider, NDialogProvider, NConfigProvider } from 'naive-ui'
+import { zhCN, dateZhCN } from 'naive-ui'
 import { onMounted } from 'vue'
 
 // Leantime-inspired theme

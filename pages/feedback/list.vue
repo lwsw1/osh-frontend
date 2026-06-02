@@ -10,11 +10,10 @@
       </n-breadcrumb>
     </div>
 
-    <!-- 公告区（跑马灯样式,置顶） -->
+    <!-- 公告区（跑马灯样式,置顶；纯文本展示，不可点击） -->
     <AnnouncementMarquee
       v-if="showAnnouncements"
       :items="announcements"
-      @item-click="goToDetail"
     />
 
     <!-- 模式切换 + 提交反馈 -->
@@ -173,6 +172,7 @@ import {
   apiGetFeedbackCategories, 
   apiGetFeedbackTags,
   apiPageFeedback,
+  apiGetFeedbackAnnouncements,
   apiGetPendingConfirmCount,
   resolveFeedbackCategoryIcon,
   resolveFeedbackErrorMessage,
@@ -185,6 +185,8 @@ import AnnouncementMarquee from '~/components/feedback/AnnouncementMarquee.vue'
 
 const router = useRouter()
 const message = useMessage()
+const user = useUser()
+const isLoggedIn = computed(() => !!user.value)
 
 const categories = ref([])
 const feedbackTags = ref([])
@@ -285,7 +287,9 @@ onMounted(() => {
   loadTags()
   loadAnnouncements()
   loadFeedback()
-  loadPendingConfirmCount()
+  if (isLoggedIn.value) {
+    loadPendingConfirmCount()
+  }
 })
 
 onActivated(() => {
@@ -358,13 +362,9 @@ async function loadTags() {
 
 async function loadAnnouncements() {
   try {
-    // 公告独立于状态筛选展示，避免默认状态过滤掉公告
-    const res = await apiPageFeedback({
-      isAnnouncement: 1,
-      pageNum: 1,
-      pageSize: 5
-    })
-    announcements.value = res.rows || []
+    // 公告从统一公告表 osh_announcement(module='feedback', channel=1) 拉取
+    const res = await apiGetFeedbackAnnouncements(5)
+    announcements.value = Array.isArray(res?.data) ? res.data : []
   } catch (error) {
     message.error(resolveFeedbackErrorMessage(error, '加载公告失败'))
     console.error('加载公告失败:', error)
@@ -396,7 +396,6 @@ async function loadFeedback() {
 function buildFeedbackPageParams(nextPageNum, extraParams = {}) {
   return {
     queryMode: queryMode.value,
-    isAnnouncement: 0,
     sortType: sortType.value,
     pageNum: nextPageNum,
     pageSize: pageSize.value,

@@ -1,8 +1,8 @@
 <template>
   <div v-if="items.length > 0" class="announcement-bar">
     <div class="announcement-label">
-      <span class="announcement-label-icon">📢</span>
-      <span>公告</span>
+      <span class="announcement-label-icon">{{ labelIcon }}</span>
+      <span>{{ label }}</span>
     </div>
     <div class="announcement-scroll-wrap">
       <div
@@ -16,7 +16,6 @@
           v-for="(item, idx) in duplicatedItems"
           :key="`${item.id}-${idx}`"
           class="announcement-item"
-          @click="$emit('item-click', item.id)"
         >
           <span class="announcement-dot" :style="{ background: resolveDotColor(idx) }"></span>
           {{ item.title }}
@@ -29,11 +28,11 @@
 
 <script setup>
 /**
- * 公告跑马灯组件（沿用首页公告视觉风格）
- * - 仅负责跑马灯展示;数据加载、刷新、空态判断由父级负责
+ * 公告跑马灯组件
+ * - 纯文本展示,不可点击,不向父级 emit 事件,与"反馈详情"等任何路由解耦
  * - items.length >= 2 时复制一份实现无缝水平滚动;<2 条时关闭动画
- * - 鼠标悬停在文本上时暂停滚动,移开恢复
- * - 单条点击向父级 emit('item-click', id) 由父级决定跳转目标,保持组件无路由耦合
+ * - 鼠标悬停时暂停滚动,移开恢复
+ * - 通过 label / labelIcon 切换"公告 / 动态"两种风格
  */
 import { computed, ref } from 'vue'
 
@@ -43,14 +42,22 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  /** 左侧标签文案 */
+  label: {
+    type: String,
+    default: '公告'
+  },
+  /** 左侧标签 emoji */
+  labelIcon: {
+    type: String,
+    default: '📢'
+  },
   /** 自定义 dot 颜色循环,未传则用默认 6 色 */
   dotColors: {
     type: Array,
     default: () => ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899']
   }
 })
-
-defineEmits(['item-click'])
 
 const paused = ref(false)
 
@@ -144,12 +151,8 @@ function resolveDotColor(index) {
   font-weight: 600;
   color: #111827;
   padding-right: 8px;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.announcement-item:hover {
-  color: #d97706;
+  cursor: default;
+  user-select: none;
 }
 
 .announcement-dot {

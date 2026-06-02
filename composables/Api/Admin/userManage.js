@@ -88,12 +88,15 @@ export function apiGetAssignableRoles() {
     })
 }
 
-/** 给用户添加角色 */
-export function apiAddUserRole(userId, roleId) {
+/** 给用户添加角色（支持有效期） */
+export function apiAddUserRole(userId, roleId, expireTime, permanent) {
+    const body = { userId, roleId }
+    if (expireTime) body.expireTime = expireTime
+    if (permanent) body.permanent = true
     return $fetch(`${fetchConfig.baseURL}/admin/user/roles/add`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: { userId, roleId }
+        body
     })
 }
 
@@ -103,5 +106,26 @@ export function apiRemoveUserRole(userId, roleId) {
         method: 'POST',
         headers: getAuthHeaders(),
         body: { userId, roleId }
+    })
+}
+
+/** 修改用户信息（用户名、密码、积分、性别、个人简介） */
+export function apiUpdateUser(params) {
+    return $fetch(`${fetchConfig.baseURL}/admin/user/update`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: params
+    })
+}
+
+/** 修改用户角色有效期（续期/减期） */
+export function apiUpdateRoleExpire(userId, roleId, expireTime, permanent) {
+    const body = { userId, roleId }
+    if (expireTime) body.expireTime = expireTime
+    if (permanent) body.permanent = true
+    return $fetch(`${fetchConfig.baseURL}/admin/user/roles/expire`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body
     })
 }

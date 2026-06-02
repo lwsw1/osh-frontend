@@ -323,23 +323,22 @@
               <span class="tag-count"
                 >已选 {{ selectedTags.length }}/{{ MAX_TAG_COUNT }}</span
               >
-              <span class="custom-tag-button-wrap" @click.stop>
-                <n-button tag="span" size="tiny" secondary @click.stop.prevent="openCustomTagModal">自定义标签</n-button>
-              </span>
             </div>
           </template>
           <div class="tag-select-block">
             <n-select
-              v-model:value="selectedTagIdsForSelect"
+              v-model:value="selectedTagValuesForSelect"
               multiple
               filterable
+              tag
               clearable
               :max-tag-count="MAX_TAG_COUNT"
               :options="candidateTagOptions"
-              placeholder="选择已有标签（最多3个）"
+              placeholder="输入标签后回车，或选择已有标签（最多3个）"
               placement="bottom"
               :consistent-menu-width="false"
               :filter="filterCandidateTagOption"
+              :on-create="handleCreateTagOption"
               @update:value="handleSelectedTagsChange"
             />
             <div class="recommend-tag-row">
@@ -381,26 +380,6 @@
           <n-button type="primary" :loading="btnLoading" @click="confirmPublish">
             {{ isEditMode ? '确认修改' : '确认发布' }}
           </n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
-    <n-modal
-      v-model:show="showCustomTagModal"
-      preset="card"
-      title="自定义标签"
-      style="width: 420px"
-    >
-      <n-input
-        v-model:value="customTagInput"
-        placeholder="请输入内容"
-        clearable
-      />
-
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showCustomTagModal = false">取消</n-button>
-          <n-button type="primary" @click="confirmCustomTag">确认</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -582,11 +561,9 @@ const queryParams = reactive({
 
 // 发布弹窗相关状态
 const showModal = ref(false);
-const showCustomTagModal = ref(false);
 const btnLoading = ref(false);
 const isEditMode = ref(false);
 const editingInfoGapId = ref(null);
-const customTagInput = ref('');
 const form = reactive({
   title: '',
   tag: '技术',
@@ -614,9 +591,11 @@ const candidateTagOptions = computed(() =>
     value: tag.id,
   }))
 );
-const selectedTagIdsForSelect = computed({
+const selectedTagValuesForSelect = computed({
   get() {
-    return selectedTags.value.map((tag) => tag.id).filter((id) => id != null);
+    return selectedTags.value
+      .map((tag) => (tag.id != null ? tag.id : tag.name))
+      .filter((value) => value != null && value !== '');
   },
   set(value) {
     handleSelectedTagsChange(value);
@@ -694,6 +673,15 @@ const findCandidateTagIdByName = (label) => {
   return matchedTag?.id ?? null;
 };
 
+const findCandidateTagByName = (label) => {
+  const normalizedLabel = normalizeSearchKeyword(label);
+  if (!normalizedLabel) return null;
+
+  return candidateTags.value.find(
+    (tag) => normalizeSearchKeyword(tag.name).toLowerCase() === normalizedLabel.toLowerCase()
+  ) || null;
+};
+
 const resolveTagMeta = (item = {}, index) => {
   const label = normalizeSearchKeyword(item[`tag${index}`]);
   const candidates = [
@@ -752,7 +740,12 @@ const buildListRequestConfig = () => {
 };
 
 const isTagSelected = (tag) => {
-  return selectedTags.value.some((t) => t.id === tag.id);
+  return selectedTags.value.some((t) => {
+    if (t.id != null && tag.id != null) {
+      return t.id === tag.id;
+    }
+    return normalizeSearchKeyword(t.name).toLowerCase() === normalizeSearchKeyword(tag.name).toLowerCase();
+  });
 };
 
 const handleTagClick = (tag) => {
@@ -767,21 +760,56 @@ const handleTagClick = (tag) => {
 
 const handleTagClose = (tag, e) => {
   e?.stopPropagation?.(); // 防止 close 触发 click 导致又被加回去
-  selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
+  selectedTags.value = selectedTags.value.filter((t) => {
+    if (t.id != null && tag.id != null) {
+      return t.id !== tag.id;
+    }
+    return normalizeSearchKeyword(t.name).toLowerCase() !== normalizeSearchKeyword(tag.name).toLowerCase();
+  });
 };
 
 const handleSelectedTagsChange = (value) => {
-  const nextIds = Array.isArray(value) ? value.filter((id) => id != null) : [];
-  const limitedIds = nextIds.slice(0, MAX_TAG_COUNT);
+  const nextValues = Array.isArray(value) ? value.filter((item) => item != null && item !== '') : [];
+  const limitedValues = nextValues.slice(0, MAX_TAG_COUNT);
 
-  if (nextIds.length > MAX_TAG_COUNT) {
+  if (nextValues.length > MAX_TAG_COUNT) {
     const { message } = createDiscreteApi(['message']);
     message.warning(`最多只能选择 ${MAX_TAG_COUNT} 个标签!!!`);
   }
 
-  selectedTags.value = limitedIds
-    .map((id) => candidateTags.value.find((tag) => tag.id === id))
-    .filter(Boolean);
+  const nextSelectedTags = [];
+
+  limitedValues.forEach((item) => {
+    if (typeof item === 'number') {
+      const matchedTag = candidateTags.value.find((tag) => tag.id === item);
+      if (matchedTag) {
+        nextSelectedTags.push(matchedTag);
+      }
+      return;
+    }
+
+    const normalizedLabel = normalizeSearchKeyword(item);
+    if (!normalizedLabel) {
+      return;
+    }
+
+    const matchedTag = findCandidateTagByName(normalizedLabel);
+    if (matchedTag) {
+      nextSelectedTags.push(matchedTag);
+      return;
+    }
+
+    nextSelectedTags.push({
+      id: null,
+      name: normalizedLabel,
+    });
+  });
+
+  selectedTags.value = nextSelectedTags.filter((tag, index, list) => (
+    list.findIndex((current) =>
+      normalizeSearchKeyword(current.name).toLowerCase() === normalizeSearchKeyword(tag.name).toLowerCase()
+    ) === index
+  ));
 };
 
 const filterCandidateTagOption = (pattern, option) => {
@@ -791,43 +819,72 @@ const filterCandidateTagOption = (pattern, option) => {
   return label.includes(keyword);
 };
 
-const openCustomTagModal = () => {
-  showCustomTagModal.value = true;
+const handleCreateTagOption = (inputValue) => {
+  const tagName = normalizeSearchKeyword(inputValue);
+  if (!tagName) {
+    return false;
+  }
+  return {
+    label: tagName,
+    value: tagName,
+  };
 };
 
-const confirmCustomTag = async () => {
-  const tagName = normalizeSearchKeyword(customTagInput.value);
-  const { message } = createDiscreteApi(['message']);
-
-  if (!tagName) {
-    message.warning('请输入标签内容');
-    return;
+const addCustomInfoGapTag = async (tagName) => {
+  const normalizedTagName = normalizeSearchKeyword(tagName);
+  if (!normalizedTagName) {
+    return null;
   }
 
   const { error: addTagError } = await useHttpGet(
-    `add-info-gap-tag-${encodeURIComponent(tagName)}`,
-    `/info_gap/tag/add?tagName=${encodeURIComponent(tagName)}`,
+    `add-info-gap-tag-${encodeURIComponent(normalizedTagName)}`,
+    `/info_gap/tag/add?tagName=${encodeURIComponent(normalizedTagName)}`,
     {
       $: true,
     }
   );
 
   if (addTagError.value) {
-    return;
+    throw addTagError.value;
+  }
+  return normalizedTagName;
+};
+
+const resolveSelectedTagIds = async () => {
+  const pendingTagNames = [];
+
+  selectedTags.value.forEach((tag) => {
+    const normalizedTagName = normalizeSearchKeyword(tag?.name);
+    if (normalizedTagName) {
+      pendingTagNames.push(normalizedTagName);
+    }
+  });
+
+  const uniquePendingTagNames = [...new Set(pendingTagNames)];
+  if (uniquePendingTagNames.length > 0) {
+    for (const tagName of uniquePendingTagNames) {
+      await addCustomInfoGapTag(tagName);
+    }
+
+    await loadCandidateTags();
+    await loadRecommendTags();
   }
 
-  await loadCandidateTags();
-  await loadRecommendTags();
-  customTagInput.value = '';
-  showCustomTagModal.value = false;
-  message.success('新增标签成功');
+  const resolvedIds = selectedTags.value
+    .map((tag) => {
+      if (tag?.id != null) {
+        return tag.id;
+      }
+      return findCandidateTagIdByName(tag?.name);
+    })
+    .filter((id) => id != null);
+
+  return [...new Set(resolvedIds)];
 };
 
 const resetPublishForm = () => {
   isEditMode.value = false;
   editingInfoGapId.value = null;
-  showCustomTagModal.value = false;
-  customTagInput.value = '';
   Object.assign(form, {
     title: '',
     tag: '技术',
@@ -1118,16 +1175,10 @@ const confirmPublish = async () => {
     return message.warning('请填写完整内容');
   }
 
-  console.log("selectedTags =", selectedTags.value);
-
   btnLoading.value = true;
-  const tagIds = selectedTags.value
-    .map((tag) => tag.id)
-    .filter((id) => id != null);
-
-  console.log("tagIds =", tagIds);
 
   try {
+    const tagIds = await resolveSelectedTagIds();
     const requestKey = isEditMode.value && editingInfoGapId.value
       ? `update-info-gap-${editingInfoGapId.value}`
       : 'add-info-gap';

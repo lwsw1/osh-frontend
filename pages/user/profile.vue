@@ -37,6 +37,22 @@
 
         <n-divider />
 
+        <!-- 当前角色 -->
+        <div class="roles-section">
+            <div class="roles-section-label">我的角色</div>
+            <div class="roles-list" v-if="userRoles.length > 0">
+                <div v-for="(r, idx) in userRoles" :key="idx" class="role-item">
+                    <n-tag :type="roleTagType(r.roleLevel)" size="small">{{ r.roleName }}</n-tag>
+                    <span v-if="r.expireTime" class="role-expire">
+                        {{ formatExpireTime(r.expireTime) }}
+                    </span>
+                </div>
+            </div>
+            <span v-else class="roles-empty">暂无角色信息</span>
+        </div>
+
+        <n-divider />
+
         <!-- 基本信息表单 -->
         <n-form
             ref="formRef"
@@ -178,6 +194,42 @@ function onAvatarError() {
     message.error('头像上传失败')
 }
 
+// ── 用户角色 ──
+const userRoles = ref([])
+
+function roleTagType(level) {
+    if (level >= 5) return 'error'
+    if (level >= 3) return 'warning'
+    return 'info'
+}
+
+function formatExpireTime(expireTime) {
+    if (!expireTime) return ''
+    const str = String(expireTime)
+    if (str.startsWith('2099')) return '永久有效'
+    const d = new Date(str)
+    if (isNaN(d.getTime())) return '到期: ' + str.substring(0, 16)
+    return '到期: ' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')
+}
+
+async function loadUserRoles() {
+    try {
+        const token = useCookie('token')
+        const res = await $fetch(fetchConfig.baseURL + '/user/roles', {
+            headers: {
+                appid: fetchConfig.headers.appid,
+                token: token.value,
+                Authorization: `Bearer ${token.value}`,
+            }
+        })
+        userRoles.value = res?.data || res || []
+    } catch {
+        userRoles.value = []
+    }
+}
+
+onMounted(() => { loadUserRoles() })
+
 // ── 基本信息表单（不含头像） ──
 const form = reactive({
     username:     user.value?.username     || '',
@@ -294,5 +346,43 @@ const onSubmit = () => {
 
 .submit-btn {
     min-width: 120px;
+}
+
+/* 角色区域 */
+.roles-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 0.25rem;
+}
+
+.roles-section-label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    color: #333;
+    padding-top: 0.25rem;
+}
+
+.roles-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.role-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.role-expire {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.roles-empty {
+    font-size: 0.8rem;
+    color: #9ca3af;
 }
 </style>
