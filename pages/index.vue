@@ -517,7 +517,7 @@
             <h2 class="section-title">热门课程</h2>
             <p class="section-subtitle">精选高质量课程，助你快速提升技能</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/course/1')">
+          <button class="btn-more" @click="navigateTo(hotCourseListUrl || getNavPath('course', '/course/1'))">
             查看全部
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -559,7 +559,7 @@
                 <span class="course-footer-right">
                   <span class="course-video-inline">🎬 {{ course.videoCount || 0 }}个视频</span>
                   <span class="course-rating-star">
-                    <svg width="12" height="12" viewBox="0 0 13 13" fill="#f59e0b">
+                    <svg width="14" height="14" viewBox="0 0 13 13" fill="#f59e0b">
                       <path d="M6.5 1l1.5 3.5H12l-3 2 1 3.5-3-2-3 2 1-3.5-3-2h4L6.5 1z"/>
                     </svg>
                     {{ course.rating }}
@@ -583,44 +583,45 @@
             <h2 class="section-title">精选电子书</h2>
             <p class="section-subtitle">涵盖前端、后端、AI 等热门方向</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/book/list')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('book', '/list/book/1'))">查看全部 →</button>
         </div>
-        <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockBooks" :key="i" class="book-card" @click="navigateTo(`/book/detail/${item.id}`)">
-            <div class="book-card-cover" :style="{ background: item.bg }">
-              <span class="book-card-level">Lv.{{ item.level }}</span>
-              <span class="book-card-emoji">{{ item.emoji }}</span>
-              <span class="book-card-type" :class="item.price > 0 ? 'type-paid' : 'type-free'">{{ item.price > 0 ? '付费' : '免费' }}</span>
+        <div class="course-grid">
+          <div
+            v-for="(book, index) in hotBooks"
+            :key="index"
+            class="course-card"
+            @click="navigateTo(book.detailUrl)"
+          >
+            <div class="course-cover" :style="book.coverStyle">
+              <div class="cover-deco-circle cover-deco-1"></div>
+              <div class="cover-deco-circle cover-deco-2"></div>
+              <div class="cover-title-block">
+                <div class="cover-main-title">{{ book.coverTitle }}</div>
+                <div class="cover-sub-title">{{ book.coverSub }}</div>
+              </div>
+              <div class="cover-heat">📖 {{ book.subCountText }}人订阅</div>
             </div>
-            <div class="book-card-body">
-              <div class="book-card-row">
-                <div class="book-card-left">
-                  <h4 class="book-card-title">{{ item.title }}</h4>
-                  <p class="book-card-desc">{{ item.description }}</p>
-                  <div class="book-card-tags">
-                    <span class="book-card-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
-                  </div>
-                  <div class="book-card-stats">
-                    <div class="book-stat">
-                      <span class="book-stat-label">订阅</span>
-                      <span class="book-stat-value">{{ item.subCount }}</span>
-                    </div>
-                    <div class="book-stat">
-                      <span class="book-stat-label">等级</span>
-                      <span class="book-stat-value">{{ item.level }}</span>
-                    </div>
-                  </div>
-                  <div class="book-card-footer">
-                    <span class="book-card-price" v-if="item.price > 0">¥{{ item.price }}</span>
-                    <span class="book-card-price book-card-price-free" v-else>免费</span>
-                  </div>
+            <div class="course-body">
+              <h3 class="course-title">{{ book.title }}</h3>
+              <p class="course-desc">{{ book.description }}</p>
+              <div class="course-tags-row">
+                <div class="course-tags">
+                  <span class="course-tag" v-for="tag in book.tags" :key="tag">{{ tag }}</span>
                 </div>
-                <div class="book-card-right">
-                  <div class="book-card-tags-right">
-                    <span class="book-card-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
-                  </div>
-                  <span class="book-card-chapters">📖 {{ item.chapterCount || 0 }}章</span>
-                </div>
+                <span class="course-views-text">📚 {{ book.chapterCount || 0 }}章</span>
+              </div>
+              <div class="course-footer">
+                <span class="price-current" v-if="book.price > 0">¥{{ book.price }}</span>
+                <span class="price-free" v-else>免费</span>
+                <span class="course-footer-right">
+                  <span class="course-video-inline">Lv.{{ book.level || 1 }}</span>
+                  <span class="course-rating-star">
+                    <svg width="15" height="15" viewBox="0 0 13 13" fill="#8b5cf6">
+                      <path d="M6.5 1l1.5 3.5H12l-3 2 1 3.5-3-2-3 2 1-3.5-3-2h4L6.5 1z"/>
+                    </svg>
+                    {{ book.hotScore ? book.hotScore.toFixed(1) : '0.0' }}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -637,32 +638,44 @@
             <h2 class="section-title">在线考试</h2>
             <p class="section-subtitle">海量真题模拟，助你轻松通关</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/paper/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('exam', '/paper/1'))">查看全部 →</button>
         </div>
-        <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockExams" :key="i" class="exam-card" @click="navigateTo('/paper/1')">
-            <div class="exam-card-cover" :style="{ background: item.bg }">
-              <span class="exam-card-count">{{ item.count }}题</span>
-              <span class="exam-card-emoji">{{ item.emoji }}</span>
-              <span class="exam-card-pass">通过率 {{ item.passRate }}</span>
+        <div class="course-grid">
+          <div
+            v-for="(exam, index) in hotExams"
+            :key="index"
+            class="course-card"
+            @click="navigateTo(exam.detailUrl)"
+          >
+            <div class="course-cover" :style="exam.coverStyle">
+              <div class="cover-deco-circle cover-deco-1"></div>
+              <div class="cover-deco-circle cover-deco-2"></div>
+              <div class="cover-title-block">
+                <div class="cover-main-title">{{ exam.coverTitle }}</div>
+                <div class="cover-sub-title">{{ exam.coverSub }}</div>
+              </div>
+              <div class="cover-heat">📝 {{ exam.questionCount }}题</div>
             </div>
-            <div class="exam-card-body">
-              <h4 class="exam-card-title">{{ item.title }}</h4>
-              <div v-if="item.tags && item.tags.length" class="exam-card-tags">
-                <span class="exam-card-tag" v-for="tag in item.tags" :key="tag">{{ tag }}</span>
-              </div>
-              <div class="exam-card-stats">
-                <div class="exam-stat">
-                  <span class="exam-stat-label">题数</span>
-                  <span class="exam-stat-value">{{ item.questionCount }}</span>
+            <div class="course-body">
+              <h3 class="course-title">{{ exam.title }}</h3>
+              <p class="course-desc">{{ exam.description }}</p>
+              <div class="course-tags-row">
+                <div class="course-tags">
+                  <span class="course-tag" v-for="tag in exam.tags" :key="tag">{{ tag }}</span>
                 </div>
-                <div class="exam-stat">
-                  <span class="exam-stat-label">及格</span>
-                  <span class="exam-stat-value">{{ item.passScore }}</span>
-                </div>
+                <span class="course-views-text">⏱ {{ exam.expire }}分钟</span>
               </div>
-              <div class="exam-card-footer">
-                <span class="exam-card-expire">时长：{{ item.expire }}分钟</span>
+              <div class="course-footer">
+                <span class="price-current" style="font-size:14px;color:#6366f1">及格 {{ exam.passScore }}分</span>
+                <span class="course-footer-right">
+                  <span class="course-video-inline">⭐ {{ exam.collectCountText }}收藏</span>
+                  <span class="course-rating-star">
+                    <svg width="15" height="15" viewBox="0 0 13 13" fill="#f59e0b">
+                      <path d="M6.5 1l1.5 3.5H12l-3 2 1 3.5-3-2-3 2 1-3.5-3-2h4L6.5 1z"/>
+                    </svg>
+                    {{ exam.hotScore ? exam.hotScore.toFixed(1) : '0.0' }}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -679,10 +692,10 @@
             <h2 class="section-title">答疑社区</h2>
             <p class="section-subtitle">专家在线解答，学习不再孤单</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/question_answer/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('qa', '/question_answer/1'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-3">
-          <div v-for="(item, i) in mockQnA" :key="i" class="qna-card" :class="{ 'qna-answered': item.status === 2, 'qna-pending': item.status !== 2 }" :style="{ background: item.bg }" @click="navigateTo('/question_answer/1')">
+          <div v-for="(item, i) in (hotQa.length ? hotQa : mockQnA)" :key="i" class="qna-card" :class="{ 'qna-answered': item.status === 1, 'qna-pending': item.status !== 1 }" :style="{ background: item.bg }" @click="navigateTo(item.detailUrl || '/question_answer/1')">
             <div class="qna-card-top">
               <h4 class="qna-card-title">{{ item.title }}</h4>
               <span class="qna-card-views">👁 {{ item.viewCount }}</span>
@@ -716,10 +729,10 @@
             <h2 class="section-title">限时秒杀</h2>
             <p class="section-subtitle">每日精选课程，低至1折</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/list/flashsale/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('seckill', '/list/flashsale/1'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockFlashsale" :key="i" class="seckill-card" @click="navigateTo(`/detail/course/${item.id}`)">
+          <div v-for="(item, i) in (hotSeckill.length ? hotSeckill : mockFlashsale)" :key="i" class="seckill-card" @click="navigateTo(item.detailUrl || '/seckill')">
             <div class="seckill-card-cover" :style="{ background: item.bg }">
               <span class="seckill-limit">🔥 限量{{ item.limit }}名</span>
             </div>
@@ -737,7 +750,7 @@
                 </div>
                 <span class="seckill-progress-text">已抢 {{ item.bought }}%</span>
               </div>
-              <button class="seckill-btn" @click.stop="navigateTo(`/detail/course/${item.id}`)">立即抢购</button>
+              <button class="seckill-btn" @click.stop="navigateTo(item.detailUrl || '/seckill')">立即抢购</button>
             </div>
           </div>
         </div>
@@ -753,21 +766,49 @@
             <h2 class="section-title">拼团优惠</h2>
             <p class="section-subtitle">邀请好友一起学，享受更低价格</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/list/group/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('group', '/list/group/1'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockGroup" :key="i" class="module-card module-card-group" @click="navigateTo(`/detail/course/${item.id}`)">
-            <div class="module-card-cover" :style="{ background: item.bg }">
-              <span class="module-card-emoji">{{ item.emoji }}</span>
-              <span class="module-card-badge">{{ item.groupCount }}人拼</span>
+          <div v-for="(item, i) in (hotGroup.length ? hotGroup : mockGroup)" :key="i" class="group-card" @click="navigateTo(item.detailUrl || '/list/group/1')">
+            <!-- 顶部：标题 + 人数徽章 -->
+            <div class="group-card-header">
+              <h4 class="group-card-title">{{ item.title }}</h4>
+              <span class="group-card-badge">{{ item.groupCount }}人团</span>
             </div>
-            <div class="module-card-body">
-              <h4 class="module-card-title">{{ item.title }}</h4>
-              <div class="module-card-price">
-                <span class="price-sale">¥{{ item.groupPrice }}</span>
-                <span class="price-origin">¥{{ item.originPrice }}</span>
+            <!-- 价格区 -->
+            <div class="group-card-price-row">
+              <span class="group-card-label">现价</span>
+              <span class="group-card-price">¥{{ item.groupPrice }}</span>
+            </div>
+            <div class="group-card-origin-row">
+              <span class="group-card-label">原价</span>
+              <span class="group-card-origin">¥{{ item.originPrice }}</span>
+            </div>
+            <!-- 人数上限 -->
+            <div class="group-card-info-row" v-if="item.maxNum">
+              <span class="group-card-info-label">人数上限</span>
+              <span class="group-card-info-val">{{ item.maxNum }}人</span>
+            </div>
+            <!-- 时间信息 -->
+            <div class="group-card-time-block" v-if="item.startTime || item.endTime">
+              <div class="group-card-time-row" v-if="item.startTime">
+                <span class="group-card-time-label">开始时间</span>
+                <span class="group-card-time-val">{{ item.startTime }}</span>
+              </div>
+              <div class="group-card-time-row" v-if="item.endTime">
+                <span class="group-card-time-label">截止时间</span>
+                <span class="group-card-time-val">{{ item.endTime }}</span>
               </div>
             </div>
+            <!-- 进度条 -->
+            <div class="group-card-progress-wrap">
+              <div class="group-card-progress-bar">
+                <div class="group-card-progress-fill" :style="{ width: Math.min(100, Math.round((item.currentNum || 0) / (item.groupCount || 1) * 100)) + '%' }"></div>
+              </div>
+              <span class="group-card-progress-text">{{ item.currentNum || 0 }}/{{ item.groupCount }}</span>
+            </div>
+            <!-- 按钮 -->
+            <button class="group-card-btn" @click.stop="navigateTo(item.detailUrl || '/list/group/1')">立即参团</button>
           </div>
         </div>
       </div>
@@ -782,10 +823,10 @@
             <h2 class="section-title">开源项目</h2>
             <p class="section-subtitle">真实项目案例，边学边练提升实战能力</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/openproject/list')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('openproject', '/openproject/list'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockOpenProjects" :key="i" class="openproj-card" @click="navigateTo('/openproject/list')">
+          <div v-for="(item, i) in (hotOpenProject.length ? hotOpenProject : mockOpenProjects)" :key="i" class="openproj-card" @click="navigateTo(item.detailUrl || '/openproject/list')">
             <div class="openproj-card-cover" :style="{ background: item.bg }">
               <span class="openproj-status-badge">活跃维护</span>
               <span class="openproj-star-badge">⭐ {{ item.stars }}</span>
@@ -820,10 +861,10 @@
             <h2 class="section-title">实用网站</h2>
             <p class="section-subtitle">程序员常用工具站点，一站式收藏</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/usefull/list')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('usefull', '/usefull/list'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockWebsites" :key="i" class="website-card" @click="navigateTo('/usefull/list')">
+          <div v-for="(item, i) in (hotWebsite.length ? hotWebsite : mockWebsites)" :key="i" class="website-card" @click="navigateTo(item.detailUrl || '/usefull/list')">
             <div class="website-card-cover" :style="{ background: item.bg }">
               <span class="website-card-emoji">{{ item.emoji }}</span>
               <span class="website-good-badge">👍 {{ item.goodCount }}</span>
@@ -853,10 +894,10 @@
             <h2 class="section-title">技术信息差</h2>
             <p class="section-subtitle">精选行业资源，发现趋势机会</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/info_gap/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('info_gap', '/info_gap/1'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockInfoGap" :key="i" class="infogap-card" @click="navigateTo('/info_gap/1')">
+          <div v-for="(item, i) in (hotInfoGap.length ? hotInfoGap : mockInfoGap)" :key="i" class="infogap-card" @click="navigateTo(item.detailUrl || '/info_gap/1')">
             <div class="infogap-card-cover" :style="{ background: item.bg }">
               <span class="infogap-tag-badge">{{ item.tag }}</span>
             </div>
@@ -887,10 +928,10 @@
             <h2 class="section-title">实用工具</h2>
             <p class="section-subtitle">AI工具、开发辅助，提升效率</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/tool/1')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('tool', '/tool/1'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockTools" :key="i" class="tool-card" @click="navigateTo('/tool/1')">
+          <div v-for="(item, i) in (hotTool.length ? hotTool : mockTools)" :key="i" class="tool-card" @click="navigateTo(item.detailUrl || '/tool/1')">
             <div class="tool-card-cover" :style="{ background: item.bg }">
               <span class="tool-card-type">{{ item.resourceType }}</span>
             </div>
@@ -919,10 +960,10 @@
             <h2 class="section-title">用户反馈</h2>
             <p class="section-subtitle">倾听用户声音，持续改进产品</p>
           </div>
-          <button class="btn-more" @click="navigateTo('/feedback/list')">查看全部 →</button>
+          <button class="btn-more" @click="navigateTo(getNavPath('feedback', '/feedback/list'))">查看全部 →</button>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in mockFeedback" :key="i" class="feedback-card-home" @click="navigateTo('/feedback/list')">
+          <div v-for="(item, i) in (hotFeedback.length ? hotFeedback : mockFeedback)" :key="i" class="feedback-card-home" @click="navigateTo(item.detailUrl || '/feedback/list')">
             <div class="feedback-card-cover" :style="{ background: item.bg }">
               <span class="feedback-category-badge">{{ item.category }}</span>
               <span class="feedback-status-badge" :class="'fb-status-' + item.status">{{ item.statusText }}</span>
@@ -1029,7 +1070,7 @@ const defaultCarouselItems = [
     title: '限时秒杀课程',
     subtitle: '热门课程限时低价，错过恢复原价',
     btnText: '立即抢购',
-    path: '/list/flashsale/1',
+    path: '/seckill',
     feature1: '限时特惠',
     feature1Icon: '🕐',
     feature2: '低至1折',
@@ -1649,9 +1690,45 @@ function goToSlide(i) {
   carouselPageIndex.value = i
 }
 
+// ===== 首页导航模块路径（从后端获取，用于"查看全部"按钮跳转） =====
+const navModuleMap = ref({})
+
+async function loadNavModules() {
+  try {
+    const res = await $fetch('/homepage/nav/modules', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      // 转为 key -> frontPath 的 map，方便模板直接取用
+      res.data.forEach(m => {
+        navModuleMap.value[m.key] = m.frontPath
+      })
+    }
+  } catch (e) {
+    console.warn('导航模块路径获取失败，使用默认路径', e)
+  }
+}
+
+// 根据模块 key 获取跳转路径，获取失败时降级到默认路径
+function getNavPath(key, fallback) {
+  return navModuleMap.value[key] || fallback
+}
+
 onMounted(() => {
   loadCarouselData()
+  loadNavModules()
   loadHotCourses()
+  loadHotBooks()
+  loadHotExams()
+  loadHotQa()
+  loadHotSeckill()
+  loadHotGroup()
+  loadHotOpenProject()
+  loadHotWebsite()
+  loadHotInfoGap()
+  loadHotTool()
+  loadHotFeedback()
   startCarousel()
 })
 
@@ -1729,6 +1806,7 @@ const defaultCourseBgs = [
 ]
 
 const hotCoursesRaw = ref([])
+const hotCourseListUrl = ref('')
 
 async function loadHotCourses() {
   try {
@@ -1740,6 +1818,8 @@ async function loadHotCourses() {
     })
     if (res && res.data && res.data.length > 0) {
       hotCoursesRaw.value = res.data
+      // 从后端返回的第一条数据中取列表页路径
+      hotCourseListUrl.value = res.data[0]?.listUrl || ''
     }
   } catch (e) {
     console.warn('热门课程接口请求失败，使用默认数据', e)
@@ -1812,23 +1892,367 @@ const examItems = [
 
 // ===== 模块区域 Mock 数据（后期对接后端 API 替换） =====
 
-// 电子书 - 对应 BookDO: id, title, cover, description, price, originalPrice, subCount, level
-const mockBooks = [
-  { id: 1, title: 'Vue3 企业级实战指南', description: '从零搭建企业级Vue3项目', price: 49.9, originalPrice: 99.0, subCount: 3200, level: 2, tags: ['Vue3', '前端'], bg: 'linear-gradient(135deg,#8b5cf6,#6366f1)', emoji: '📘', meta: '¥49.9 · 3200人订阅' },
-  { id: 2, title: 'TypeScript 高级编程', description: '深入理解TS类型系统', price: 39.9, originalPrice: 79.0, subCount: 2800, level: 2, tags: ['TypeScript', '前端'], bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', emoji: '📗', meta: '¥39.9 · 2800人订阅' },
-  { id: 3, title: 'Python 数据分析实战', description: 'Pandas+NumPy数据处理', price: 0, originalPrice: 0, subCount: 5100, level: 1, tags: ['Python', 'AI'], bg: 'linear-gradient(135deg,#f59e0b,#f97316)', emoji: '📙', meta: '免费 · 5100人订阅' },
-  { id: 4, title: 'Docker 容器化部署', description: '从入门到生产环境实践', price: 29.9, originalPrice: 59.0, subCount: 1900, level: 2, tags: ['Docker', '运维'], bg: 'linear-gradient(135deg,#14b8a6,#06b6d4)', emoji: '📕', meta: '¥29.9 · 1900人订阅' },
-  { id: 5, title: 'MySQL 性能调优手册', description: '索引优化与SQL调优', price: 59.9, originalPrice: 119.0, subCount: 4200, level: 3, tags: ['MySQL', '数据库'], bg: 'linear-gradient(135deg,#ec4899,#f43f5e)', emoji: '📓', meta: '¥59.9 · 4200人订阅' },
+// ===== 精选电子书（对接后端接口） =====
+const defaultBookBgs = [
+  'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+  'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+  'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+  'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)',
+  'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)',
 ]
 
-// 考试 - 对应 ExamVo: id, title, total_score, pass_score, expire, question_count
-const mockExams = [
-  { id: 1, title: '前端面试题精选 500 道', totalScore: 100, passScore: 60, expire: 120, questionCount: 500, tags: ['JavaScript', 'Vue', 'React'], bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '💻', count: '500', passRate: '72%' },
-  { id: 2, title: 'Java 后端面试宝典', totalScore: 100, passScore: 60, expire: 150, questionCount: 680, tags: ['Java', 'Spring Boot'], bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '☕', count: '680', passRate: '68%' },
-  { id: 3, title: 'MySQL 数据库考题库', totalScore: 100, passScore: 70, expire: 90, questionCount: 320, tags: ['MySQL', 'SQL'], bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', emoji: '🗄️', count: '320', passRate: '81%' },
-  { id: 4, title: 'Linux 运维认证题库', totalScore: 100, passScore: 60, expire: 120, questionCount: 420, tags: ['Linux', '运维'], bg: 'linear-gradient(135deg,#fa709a,#fee140)', emoji: '🐧', count: '420', passRate: '65%' },
-  { id: 5, title: 'Python 编程基础测验', totalScore: 100, passScore: 60, expire: 60, questionCount: 280, tags: ['Python'], bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🐍', count: '280', passRate: '88%' },
+const hotBooksRaw = ref([])
+
+async function loadHotBooks() {
+  try {
+    const res = await $fetch('/homepage/book/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: {
+        appid: fetchConfig.headers.appid,
+      },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotBooksRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('精选电子书接口请求失败', e)
+  }
+}
+
+const hotBooks = computed(() => hotBooksRaw.value.map((book, index) => {
+  const bg = defaultBookBgs[index % defaultBookBgs.length]
+  const coverStyle = book.cover
+    ? { backgroundImage: `url(${book.cover}), ${bg}`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: bg }
+  return {
+    ...book,
+    bg,
+    coverStyle,
+    coverTitle: book.tags?.[0] || book.title?.substring(0, 4) || '',
+    coverSub: book.tags?.join(' · ') || '',
+    subCountText: formatCount(book.subCount || 0),
+    price: book.price ?? 0,
+    tags: book.tags || [],
+    chapterCount: book.chapterCount || 0,
+    level: book.level || 1,
+    hotScore: book.hotScore || 0,
+    detailUrl: `/book/${book.id}`,
+  }
+}))
+
+// ===== 在线考试（对接后端接口） =====
+const defaultExamBgs = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
 ]
+
+const hotExamsRaw = ref([])
+
+async function loadHotExams() {
+  try {
+    const res = await $fetch('/homepage/exam/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotExamsRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('在线考试接口请求失败', e)
+  }
+}
+
+const hotExams = computed(() => hotExamsRaw.value.map((exam, index) => {
+  const bg = defaultExamBgs[index % defaultExamBgs.length]
+  const coverStyle = exam.cover
+    ? { backgroundImage: `url(${exam.cover}), ${bg}`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: bg }
+  return {
+    ...exam,
+    bg,
+    coverStyle,
+    coverTitle: exam.tags?.[0] || exam.title?.substring(0, 4) || '',
+    coverSub: exam.tags?.join(' · ') || '',
+    collectCountText: formatCount(exam.collectCount || 0),
+    tags: exam.tags || [],
+    questionCount: exam.questionCount || 0,
+    expire: exam.expire || 0,
+    passScore: exam.passScore || 0,
+    hotScore: exam.hotScore || 0,
+    detailUrl: exam.detailUrl || `/paper_test/${exam.id}`,
+  }
+}))
+
+// ===== 答疑社区（对接后端接口） =====
+const defaultQaBgs = [
+  'linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%)',
+  'linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)',
+  'linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%)',
+  'linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)',
+  'linear-gradient(135deg, #fce7f3 0%, #fdf2f8 100%)',
+]
+const hotQaRaw = ref([])
+async function loadHotQa() {
+  try {
+    const res = await $fetch('/homepage/qa/hot?limit=3', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotQaRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('答疑社区接口请求失败', e)
+  }
+}
+const hotQa = computed(() => hotQaRaw.value.map((item, index) => ({
+  ...item,
+  bg: defaultQaBgs[index % defaultQaBgs.length],
+  title: item.content ? item.content.substring(0, 50) : '',
+  tags: item.resourceType ? [item.resourceType] : [],
+  answers: item.answerCount || 0,
+  views: formatCount(item.viewCount || 0),
+  statusText: item.status === 1 ? '已解决' : item.status === 2 ? '已关闭' : '待回答',
+})))
+
+// ===== 限时秒杀（对接后端接口） =====
+const hotSeckillRaw = ref([])
+async function loadHotSeckill() {
+  try {
+    const res = await $fetch('/homepage/seckill/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotSeckillRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('限时秒杀接口请求失败', e)
+  }
+}
+const defaultSeckillBgs = [
+  'linear-gradient(135deg,#dc2626,#f97316)',
+  'linear-gradient(135deg,#e11d48,#be185d)',
+  'linear-gradient(135deg,#b91c1c,#991b1b)',
+  'linear-gradient(135deg,#c2410c,#ea580c)',
+  'linear-gradient(135deg,#9f1239,#f43f5e)',
+]
+const hotSeckill = computed(() => hotSeckillRaw.value.map((item, index) => ({
+  ...item,
+  id: item.itemId,
+  title: item.goodsName,
+  cover: item.goodsCover,
+  salePrice: item.seckillPrice,
+  originPrice: item.originPrice,
+  bg: defaultSeckillBgs[index % defaultSeckillBgs.length],
+  emoji: '⚡',
+  discount: item.originPrice && item.seckillPrice
+    ? Math.round((item.seckillPrice / item.originPrice) * 10) + '折'
+    : '',
+  bought: item.stock ? Math.round((item.soldCount || 0) / item.stock * 100) : 0,
+  limit: item.limitPerUser || 0,
+  detailUrl: item.detailUrl || (item.activityId ? `/seckill/detail/${item.activityId}` : '/seckill'),
+})))
+
+// ===== 拼团优惠（对接后端接口） =====
+const hotGroupRaw = ref([])
+async function loadHotGroup() {
+  try {
+    const res = await $fetch('/homepage/group/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotGroupRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('拼团优惠接口请求失败', e)
+  }
+}
+const defaultGroupBgs = [
+  'linear-gradient(135deg,#a18cd1,#fbc2eb)',
+  'linear-gradient(135deg,#a1c4fd,#c2e9fb)',
+  'linear-gradient(135deg,#ffecd2,#fcb69f)',
+  'linear-gradient(135deg,#667eea,#764ba2)',
+  'linear-gradient(135deg,#4facfe,#00f2fe)',
+]
+const hotGroup = computed(() => hotGroupRaw.value.map((item, index) => ({
+  ...item,
+  id: item.groupId,
+  bg: defaultGroupBgs[index % defaultGroupBgs.length],
+  emoji: '👥',
+  groupCount: item.pNum || 3,
+  maxNum: item.maxNum || null,
+  startTime: item.startTime || null,
+  endTime: item.endTime || null,
+  groupPrice: item.groupPrice,
+  originPrice: item.originPrice,
+})))
+
+// ===== 开源项目（对接后端接口） =====
+const hotOpenProjectRaw = ref([])
+async function loadHotOpenProject() {
+  try {
+    const res = await $fetch('/homepage/openproject/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotOpenProjectRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('开源项目接口请求失败', e)
+  }
+}
+const defaultOpenProjectBgs = [
+  'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#0ea5e9,#3b82f6)',
+  'linear-gradient(135deg,#f59e0b,#ef4444)',
+  'linear-gradient(135deg,#ec4899,#8b5cf6)',
+]
+const hotOpenProject = computed(() => hotOpenProjectRaw.value.map((item, index) => ({
+  ...item,
+  siteName: item.projectName,
+  title: item.projectName,
+  description: item.projectDesc,
+  siteUrl: item.projectUrl,
+  cover: item.projectCover,
+  bg: defaultOpenProjectBgs[index % defaultOpenProjectBgs.length],
+  emoji: '🚀',
+  stars: String(item.starCount || 0),
+  forkCount: item.forkCount || 0,
+  author: item.authorName || '',
+  detailUrl: '/openproject/list',
+})))
+
+// ===== 实用网站（对接后端接口） =====
+const hotWebsiteRaw = ref([])
+async function loadHotWebsite() {
+  try {
+    const res = await $fetch('/homepage/website/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotWebsiteRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('实用网站接口请求失败', e)
+  }
+}
+const defaultWebsiteBgs = [
+  'linear-gradient(135deg,#667eea,#764ba2)',
+  'linear-gradient(135deg,#f093fb,#f5576c)',
+  'linear-gradient(135deg,#43e97b,#38f9d7)',
+  'linear-gradient(135deg,#fa709a,#fee140)',
+  'linear-gradient(135deg,#a18cd1,#fbc2eb)',
+]
+const hotWebsite = computed(() => hotWebsiteRaw.value.map((item, index) => ({
+  ...item,
+  bg: defaultWebsiteBgs[index % defaultWebsiteBgs.length],
+  emoji: '🔗',
+  desc: `${formatCount(item.clickCount || 0)}次访问 · ${item.description || ''}`,
+  detailUrl: '/usefull/list',
+})))
+
+// ===== 技术信息差（对接后端接口） =====
+const hotInfoGapRaw = ref([])
+async function loadHotInfoGap() {
+  try {
+    const res = await $fetch('/homepage/infogap/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotInfoGapRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('技术信息差接口请求失败', e)
+  }
+}
+const defaultInfoGapBgs = [
+  'linear-gradient(135deg,#ec4899,#f43f5e)',
+  'linear-gradient(135deg,#8b5cf6,#6366f1)',
+  'linear-gradient(135deg,#f59e0b,#f97316)',
+  'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+]
+const hotInfoGap = computed(() => hotInfoGapRaw.value.map((item, index) => ({
+  ...item,
+  bg: defaultInfoGapBgs[index % defaultInfoGapBgs.length],
+  emoji: '💡',
+  meta: `👍 ${formatCount(item.goodCount || 0)} · ${item.tag || ''}`,
+  author: item.userName || '',
+  tags: item.tag ? item.tag.split(',').slice(0, 2) : [],
+})))
+
+// ===== 实用工具（对接后端接口） =====
+const hotToolRaw = ref([])
+async function loadHotTool() {
+  try {
+    const res = await $fetch('/homepage/tool/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotToolRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('实用工具接口请求失败', e)
+  }
+}
+const defaultToolBgs = [
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#0ea5e9,#06b6d4)',
+  'linear-gradient(135deg,#10b981,#059669)',
+  'linear-gradient(135deg,#f59e0b,#f97316)',
+  'linear-gradient(135deg,#ec4899,#f43f5e)',
+]
+const hotTool = computed(() => hotToolRaw.value.map((item, index) => ({
+  ...item,
+  toolName: item.toolName,
+  bg: defaultToolBgs[index % defaultToolBgs.length],
+  usageCount: item.totalUsage || 0,
+  price: item.price || 0,
+  tags: [],
+})))
+
+// ===== 用户反馈（对接后端接口） =====
+const hotFeedbackRaw = ref([])
+async function loadHotFeedback() {
+  try {
+    const res = await $fetch('/homepage/feedback/hot?limit=5', {
+      baseURL: fetchConfig.baseURL,
+      headers: { appid: fetchConfig.headers.appid },
+    })
+    if (res && res.data && res.data.length > 0) {
+      hotFeedbackRaw.value = res.data
+    }
+  } catch (e) {
+    console.warn('用户反馈接口请求失败', e)
+  }
+}
+const defaultFeedbackBgs = [
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#10b981,#14b8a6)',
+  'linear-gradient(135deg,#ef4444,#f97316)',
+  'linear-gradient(135deg,#f59e0b,#f97316)',
+  'linear-gradient(135deg,#0ea5e9,#6366f1)',
+]
+const statusTextMap = { PENDING: '待处理', PROCESSING: '处理中', RESOLVED: '已解决', CLOSED: '已关闭' }
+const hotFeedback = computed(() => hotFeedbackRaw.value.map((item, index) => ({
+  ...item,
+  bg: defaultFeedbackBgs[index % defaultFeedbackBgs.length],
+  statusText: statusTextMap[item.status] || item.status,
+  tags: [],
+  user: '',
+  content: item.summary || item.title || '',
+  time: '',
+})))
 
 // 答疑 - 对应 Question: id, userId, content, status, viewCount, followCount
 const mockQnA = [
@@ -3054,12 +3478,12 @@ const features = [
   top: 10px;
   right: 10px;
   z-index: 1;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 100px;
 }
 
@@ -3168,8 +3592,8 @@ const features = [
 }
 
 .course-views-text {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: 14px;
+  color: #6b7280;
   white-space: nowrap;
 }
 
@@ -3215,7 +3639,7 @@ const features = [
 }
 
 .course-video-inline {
-  font-size: 10px;
+  font-size: 14px;
   color: #6b7280;
 }
 
@@ -3223,7 +3647,7 @@ const features = [
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -5463,15 +5887,15 @@ const features = [
 
 .module-card-cover {
   position: relative;
-  height: 80px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 10px;
+  padding: 12px;
 }
 .module-card-emoji {
-  font-size: 36px;
+  font-size: 42px;
 }
 .module-card-badge {
   position: absolute;
@@ -5631,6 +6055,160 @@ const features = [
 }
 .seckill-btn:hover {
   background: #b91c1c;
+}
+
+/* 拼团优惠卡片 */
+.group-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  height: 300px;
+  overflow: hidden;
+}
+.group-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(99,102,241,0.13);
+  border-color: #6366f1;
+}
+.group-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.group-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e1b4b;
+  line-height: 1.4;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+.group-card-badge {
+  flex-shrink: 0;
+  background: #6366f1;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.group-card-price-row,
+.group-card-origin-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.group-card-label {
+  font-size: 11px;
+  color: #9ca3af;
+  width: 26px;
+  flex-shrink: 0;
+}
+.group-card-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ef4444;
+}
+.group-card-origin {
+  font-size: 12px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+.group-card-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  margin-bottom: 8px;
+}
+.group-card-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.group-card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.group-card-progress-text {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.group-card-btn {
+  width: 100%;
+  padding: 7px 0;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.group-card-btn:hover {
+  background: #4f46e5;
+}
+.group-card-info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.group-card-info-label {
+  font-size: 11px;
+  color: #9ca3af;
+  width: 42px;
+  flex-shrink: 0;
+}
+.group-card-info-val {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 500;
+}
+.group-card-time-block {
+  background: #f0f4ff;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+}
+.group-card-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.group-card-time-row:last-child {
+  margin-bottom: 0;
+}
+.group-card-time-label {
+  font-size: 10px;
+  color: #6366f1;
+  width: 42px;
+  flex-shrink: 0;
+}
+.group-card-time-val {
+  font-size: 10px;
+  color: #374151;
 }
 
 /* 开源项目卡片 */
