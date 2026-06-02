@@ -7,34 +7,65 @@
         </button>
       </div>
 
-      <div class="nav-menu-scroll" ref="navMenuScrollRef">
-        <nav class="nav-menu">
-        <template v-for="(item, index) in menus" :key="index">
-          <!-- 有子菜单的项 -->
-          <n-dropdown v-if="item.children" :options="getDropdownOptions(item)" @select="handleDropdownSelect" placement="bottom-start">
-            <a class="nav-item" :class="{ 'active': isChildMenuActive(item) }">
-              <component :is="item.iconComponent" class="nav-icon" />
-              <span class="nav-text">{{ item.name }}</span>
-              <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </a>
-          </n-dropdown>
-          
-          <!-- 普通菜单项 -->
-          <a
-            v-else
-            :href="item.path"
-            @click.prevent="handleOpen(item.path)"
-            @mouseenter="prefetchRoute(item.path)"
-            class="nav-item"
-            :class="{ 'active': isMenuItemActive(item) }"
-          >
-            <component :is="item.iconComponent" class="nav-icon" />
-            <span class="nav-text">{{ item.name }}</span>
-          </a>
-        </template>
-        </nav>
+      <div class="nav-scroll-shell">
+        <button
+          type="button"
+          class="nav-scroll-btn"
+          :disabled="!scrollState.canScrollLeft"
+          :class="{ disabled: !scrollState.canScrollLeft }"
+          @click="scrollNavBy(-240)"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M8.5 3.5L5 7l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div
+          class="nav-menu-scroll"
+          ref="navMenuScrollRef"
+          @scroll="updateScrollState"
+          @wheel="handleNavWheel"
+          @mousedown="handleDragStart"
+          @click.capture="handlePotentialDragClick"
+        >
+          <nav class="nav-menu">
+            <template v-for="(item, index) in menus" :key="index">
+              <n-dropdown v-if="item.children" :options="getDropdownOptions(item)" @select="handleDropdownSelect" placement="bottom-start">
+                <a class="nav-item" :class="{ active: isChildMenuActive(item) }">
+                  <component :is="item.iconComponent" class="nav-icon" />
+                  <span class="nav-text">{{ item.name }}</span>
+                  <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+              </n-dropdown>
+
+              <a
+                v-else
+                :href="item.path"
+                @click.prevent="handleOpen(item.path)"
+                @mouseenter="prefetchRoute(item.path)"
+                class="nav-item"
+                :class="{ active: isMenuItemActive(item) }"
+              >
+                <component :is="item.iconComponent" class="nav-icon" />
+                <span class="nav-text">{{ item.name }}</span>
+              </a>
+            </template>
+          </nav>
+        </div>
+
+        <button
+          type="button"
+          class="nav-scroll-btn"
+          :disabled="!scrollState.canScrollRight"
+          :class="{ disabled: !scrollState.canScrollRight }"
+          @click="scrollNavBy(240)"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M5.5 3.5L9 7l-3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       <div class="user-section">
@@ -49,12 +80,11 @@
         </nuxt-link>
 
         <template v-else>
-          <!-- 消息通知铃铛 -->
           <NotificationBell />
 
           <n-dropdown :options="userOptions" @select="handleSelect" placement="bottom-end">
             <button class="user-btn">
-              <n-avatar  
+              <n-avatar
                 round
                 size="small"
                 :src="user?.avatar || DEFAULT_AVATAR"
@@ -83,31 +113,22 @@ import { h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const user = useUser();
 const route = useRoute();
-const permissions = usePermissions();
 const { hasAnyPermission } = usePermission();
 
-// ── WebSocket：用户登录后自动连接，退出后断开 ──────────────────────────────
 const { connect, disconnect } = useWebSocket();
 
 onMounted(() => {
   if (user.value) connect();
 });
 
-onBeforeUnmount(() => {
-  // 组件卸载时不主动断开（保持全局连接），退出登录时由 useLogout 断开
-});
-
 watch(user, (newVal, oldVal) => {
   if (newVal && !oldVal) {
-    // 刚登录
     connect();
   } else if (!newVal && oldVal) {
-    // 刚退出
     disconnect();
   }
 });
 
-// SVG Icon Components
 const HomeIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
   h('path', { d: 'M2 7l7-5 7 5v8a1 1 0 01-1 1H3a1 1 0 01-1-1V7z', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
 ]);
@@ -211,58 +232,155 @@ const menus = ref([
 
 const SearchBarRef = ref(null);
 const navMenuScrollRef = ref(null);
+const scrollState = ref({
+  canScrollLeft: false,
+  canScrollRight: false,
+  enabled: false,
+});
 const { dialog } = createDiscreteApi(["dialog"]);
+let navResizeObserver = null;
+let isDragging = false;
+let dragMoved = false;
+let suppressClick = false;
+let dragStartX = 0;
+let dragStartScrollLeft = 0;
+let navSyncFrame = 0;
 
-// 让目标页签在 bar 上可见；若它贴着某一侧边缘，多滑出一点(peek)，
-// 把那一侧还没显示出来的相邻页签带出来，提示用户后面还有内容。
-function revealTab(targetEl) {
+function centerTab(targetEl, behavior = 'smooth') {
   const scrollContainer = navMenuScrollRef.value;
   if (!scrollContainer || !targetEl) return;
-
-  const peek = 64; // 多露出相邻页签的宽度
-  const cs = scrollContainer.scrollLeft;
   const maxScrollLeft = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
-
-  // 用实时屏幕坐标计算需要滚动的距离，左右逻辑对称
-  const cRect = scrollContainer.getBoundingClientRect();
-  const eRect = targetEl.getBoundingClientRect();
-
-  let delta = 0;
-  if (eRect.right + peek > cRect.right) {
-    // 右侧被遮挡 → 往右滑，带出右边的页签
-    delta = eRect.right + peek - cRect.right;
-  } else if (eRect.left - peek < cRect.left) {
-    // 左侧被遮挡 → 往左滑，带出左边的页签
-    delta = eRect.left - peek - cRect.left;
-  } else {
-    return; // 已完整可见，不动
-  }
-
-  const next = Math.max(0, Math.min(cs + delta, maxScrollLeft));
-  if (Math.abs(next - cs) < 1) return;
-  scrollContainer.scrollTo({ left: next, behavior: 'smooth' });
+  const targetCenter = targetEl.offsetLeft + targetEl.offsetWidth / 2;
+  const next = Math.max(0, Math.min(targetCenter - scrollContainer.clientWidth / 2, maxScrollLeft));
+  scrollContainer.scrollTo({ left: next, behavior });
 }
 
-// 跳转完成后，定位到当前激活的页签并保证其可见
-function revealActiveTab() {
+function centerActiveTab(behavior = 'smooth') {
   nextTick(() => {
     const scrollContainer = navMenuScrollRef.value;
     if (!scrollContainer) return;
     const activeEl = scrollContainer.querySelector('.nav-item.active');
-    if (activeEl) revealTab(activeEl);
+    if (activeEl) {
+      centerTab(activeEl, behavior);
+    }
+    updateScrollState();
   });
+}
+
+function scheduleNavSync(behavior = 'auto') {
+  if (!import.meta.client) {
+    centerActiveTab(behavior);
+    return;
+  }
+  if (navSyncFrame) {
+    cancelAnimationFrame(navSyncFrame);
+  }
+  navSyncFrame = window.requestAnimationFrame(() => {
+    navSyncFrame = 0;
+    centerActiveTab(behavior);
+  });
+}
+
+function handleNavLayoutChange() {
+  scheduleNavSync('auto');
 }
 
 function handleOpen(path) {
   navigateTo(path);
 }
 
-// 鼠标悬停即预加载目标路由的代码块，点击时跳转更快
 function prefetchRoute(path) {
   if (!path) return;
   try {
     preloadRouteComponents(path);
   } catch (e) {}
+}
+
+function updateScrollState() {
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer) return;
+  const maxScroll = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
+  scrollState.value = {
+    enabled: maxScroll > 1,
+    canScrollLeft: scrollContainer.scrollLeft > 2,
+    canScrollRight: scrollContainer.scrollLeft < maxScroll - 2,
+  };
+}
+
+function handleNavWheel(event) {
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer || !scrollState.value.enabled) return;
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (!delta) return;
+  const maxScroll = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
+  const next = Math.max(0, Math.min(scrollContainer.scrollLeft + delta, maxScroll));
+  if (Math.abs(next - scrollContainer.scrollLeft) < 1) return;
+  event.preventDefault();
+  scrollContainer.scrollLeft = next;
+  updateScrollState();
+}
+
+function scrollNavBy(delta) {
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer || !scrollState.value.enabled) return;
+  scrollContainer.scrollBy({
+    left: delta,
+    behavior: 'smooth',
+  });
+}
+
+function handleDragStart(event) {
+  if (event.button !== 0 || !scrollState.value.enabled) return;
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer) return;
+  isDragging = true;
+  dragMoved = false;
+  dragStartX = event.clientX;
+  dragStartScrollLeft = scrollContainer.scrollLeft;
+  scrollContainer.classList.add('dragging');
+  if (import.meta.client) {
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragEnd);
+  }
+}
+
+function handleDragMove(event) {
+  if (!isDragging) return;
+  const scrollContainer = navMenuScrollRef.value;
+  if (!scrollContainer) return;
+  const deltaX = event.clientX - dragStartX;
+  if (Math.abs(deltaX) > 4) {
+    dragMoved = true;
+  }
+  scrollContainer.scrollLeft = dragStartScrollLeft - deltaX;
+  updateScrollState();
+}
+
+function handleDragEnd() {
+  if (!isDragging) return;
+  const scrollContainer = navMenuScrollRef.value;
+  isDragging = false;
+  if (dragMoved) {
+    suppressClick = true;
+    setTimeout(() => {
+      suppressClick = false;
+    }, 0);
+  }
+  if (scrollContainer) {
+    scrollContainer.classList.remove('dragging');
+  }
+  if (import.meta.client) {
+    document.body.style.userSelect = '';
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragEnd);
+  }
+}
+
+function handlePotentialDragClick(event) {
+  if (!suppressClick) return;
+  event.preventDefault();
+  event.stopPropagation();
 }
 
 onMounted(() => {
@@ -280,21 +398,17 @@ onMounted(() => {
     const internalMenu = menus.value[internalMenuIndex];
     const visibleChildren = [];
 
-    // 检查内部网站权限
     if (permissions.value.innerSite !== undefined) {
-      visibleChildren.push(internalMenu.children[0]); // 内部网站
+      visibleChildren.push(internalMenu.children[0]);
     }
 
-    // 检查内部资源权限
     if (permissions.value.internalResource !== undefined) {
-      visibleChildren.push(internalMenu.children[1]); // 内部资源
+      visibleChildren.push(internalMenu.children[1]);
     }
 
-    // 如果没有任何权限，移除整个内部菜单
     if (visibleChildren.length === 0) {
       menus.value.splice(internalMenuIndex, 1);
     } else if (visibleChildren.length === 1) {
-      // 如果只有一个子项，直接变成普通菜单项
       menus.value[internalMenuIndex] = {
         name: visibleChildren[0].name,
         path: visibleChildren[0].path,
@@ -302,12 +416,10 @@ onMounted(() => {
         iconComponent: SiteIcon
       };
     } else {
-      // 有多个子项，保留下拉菜单
       internalMenu.children = visibleChildren;
     }
   }
 
-  // 用户管理：仅已登录的创始人（level >= 6）可见
   let isFounder = false
   if (user.value) {
     try {
@@ -325,16 +437,44 @@ onMounted(() => {
     }
   }
 
-  revealActiveTab();
+  nextTick(() => {
+    scheduleNavSync('auto');
+    if (typeof ResizeObserver !== 'undefined' && navMenuScrollRef.value) {
+      navResizeObserver = new ResizeObserver(handleNavLayoutChange);
+      navResizeObserver.observe(navMenuScrollRef.value);
+      if (navMenuScrollRef.value.firstElementChild) {
+        navResizeObserver.observe(navMenuScrollRef.value.firstElementChild);
+      }
+    }
+    if (import.meta.client) {
+      window.addEventListener('resize', handleNavLayoutChange);
+    }
+  });
+});
+
+onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.body.style.userSelect = '';
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragEnd);
+    window.removeEventListener('resize', handleNavLayoutChange);
+    if (navSyncFrame) {
+      cancelAnimationFrame(navSyncFrame);
+      navSyncFrame = 0;
+    }
+  }
+  if (navResizeObserver) {
+    navResizeObserver.disconnect();
+    navResizeObserver = null;
+  }
 });
 
 watch(
   () => route.fullPath,
-  () => revealActiveTab(),
+  () => scheduleNavSync(),
   { flush: 'post' }
 );
 
-// 获取下拉菜单选项
 function getDropdownOptions(item) {
   return item.children.map(child => ({
     label: child.name,
@@ -346,12 +486,10 @@ function getDropdownOptions(item) {
   }));
 }
 
-// 处理下拉菜单选择
 function handleDropdownSelect(key) {
   handleOpen(key);
 }
 
-// 检查子菜单是否激活
 function isChildMenuActive(item) {
   if (!item.children) return false;
   return item.children.some(child => isMenuItemActive(child));
@@ -407,7 +545,6 @@ const handleSelect = (k)=>{
 </script>
 
 <style scoped>
-/* Leantime-inspired Tech Navbar - Clean, Modern, Professional */
 .navbar {
   position: fixed;
   top: 0;
@@ -445,7 +582,6 @@ const handleSelect = (k)=>{
   }
 }
 
-/* Brand Section */
 .brand-section {
   flex-shrink: 0;
 }
@@ -480,8 +616,9 @@ const handleSelect = (k)=>{
   letter-spacing: -0.02em;
 }
 
-/* Navigation Menu - scrollable middle section */
 .nav-menu-scroll {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
@@ -495,6 +632,14 @@ const handleSelect = (k)=>{
   display: none;
 }
 
+.nav-scroll-shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .nav-menu {
   display: inline-flex;
   align-items: center;
@@ -502,6 +647,38 @@ const handleSelect = (k)=>{
   padding: 0 8px;
   width: max-content;
   min-width: 100%;
+}
+
+.nav-scroll-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-scroll-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: #eef2ff;
+}
+
+.nav-scroll-btn.disabled,
+.nav-scroll-btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.nav-scroll-btn.disabled:hover,
+.nav-scroll-btn:disabled:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
 }
 
 .nav-item {
@@ -552,7 +729,14 @@ const handleSelect = (k)=>{
   font-size: 14px;
 }
 
-/* User Section */
+.nav-menu-scroll {
+  cursor: grab;
+}
+
+.nav-menu-scroll.dragging {
+  cursor: grabbing;
+}
+
 .user-section {
   flex-shrink: 0;
   margin-left: auto;
@@ -622,18 +806,16 @@ const handleSelect = (k)=>{
   border: 2px solid rgba(99, 102, 241, 0.2);
 }
 
-/* Spacer */
 .navbar-spacer {
   height: 60px;
 }
 
-/* Responsive */
 @media (max-width: 1200px) {
   .nav-item {
     padding: 8px 10px;
     font-size: 13px;
   }
-  
+
   .nav-text {
     font-size: 13px;
   }
@@ -643,20 +825,25 @@ const handleSelect = (k)=>{
   .container {
     gap: 16px;
   }
-  
+
   .nav-menu {
     gap: 1px;
     padding: 0 8px;
   }
-  
+
+  .nav-scroll-btn {
+    width: 28px;
+    height: 28px;
+  }
+
   .nav-item {
     padding: 8px;
   }
-  
+
   .nav-text {
     display: none;
   }
-  
+
   .user-name {
     display: none;
   }
