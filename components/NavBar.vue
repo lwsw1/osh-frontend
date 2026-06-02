@@ -227,7 +227,7 @@ const menus = ref([
     ]
   },
   { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon },
-  { name: '用户管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
+  { name: '后台管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
 ]);
 
 const SearchBarRef = ref(null);
@@ -566,20 +566,14 @@ const handleSelect = (k)=>{
 }
 
 .container {
-  max-width: 1400px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 24px;
+  margin: 0;
+  padding: 0;
   height: 60px;
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-@media (max-width: 1200px) {
-  .container {
-    max-width: 100%;
-  }
+  gap: 8px;
 }
 
 .brand-section {
@@ -590,7 +584,7 @@ const handleSelect = (k)=>{
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
+  padding: 0;
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -637,7 +631,7 @@ const handleSelect = (k)=>{
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-menu {
@@ -742,7 +736,7 @@ const handleSelect = (k)=>{
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .login-link {
@@ -774,7 +768,7 @@ const handleSelect = (k)=>{
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px 6px 6px;
+  padding: 6px 10px 6px 6px;
   background: rgba(148, 163, 184, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 8px;
