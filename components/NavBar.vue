@@ -113,7 +113,7 @@ import { h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const user = useUser();
 const route = useRoute();
-const { hasAnyPermission } = usePermission();
+const MIN_AUDIT_ROLE_LEVEL = 5;
 
 const { connect, disconnect } = useWebSocket();
 
@@ -202,8 +202,6 @@ const PlanIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', f
   h('rect', { x: '2', y: '3', width: '14', height: '12', rx: '2', stroke: 'currentColor', 'stroke-width': '1.5' }),
   h('path', { d: 'M6 7h6M6 10h4M9 3v2', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
 ]);
-
-const AUDIT_MENU_PERMISSION = 'audit';
 
 const menus = ref([
   { name: '首页', path: '/', iconComponent: HomeIcon },
@@ -384,7 +382,19 @@ function handlePotentialDragClick(event) {
 }
 
 onMounted(() => {
-  if (!hasAnyPermission(AUDIT_MENU_PERMISSION)) {
+  let auditRoleLevel = 0
+  try {
+    const roleStr = localStorage.getItem('__user_role__')
+    if (roleStr) {
+      const role = JSON.parse(roleStr)
+      auditRoleLevel = parseInt(role.level || '0')
+    }
+  } catch {}
+  const fromUser = Number(user.value?.role?.level ?? 0)
+  if (Number.isFinite(fromUser) && fromUser > auditRoleLevel) {
+    auditRoleLevel = fromUser
+  }
+  if (auditRoleLevel < MIN_AUDIT_ROLE_LEVEL) {
     const auditMenuIndex = menus.value.findIndex(item => item.path === '/audit');
     if (auditMenuIndex !== -1) {
       menus.value.splice(auditMenuIndex, 1);
