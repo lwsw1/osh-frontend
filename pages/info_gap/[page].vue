@@ -60,6 +60,18 @@
             </template>
             发布我的信息差
           </n-button>
+          <n-select
+            :value="activeSearchCategory || null"
+            style="width: 140px"
+            placeholder="选择类别"
+            clearable
+            :options="[
+              { label: '技术', value: '技术' },
+              { label: '政策', value: '政策' },
+              { label: '搞钱', value: '搞钱' },
+            ]"
+            @update:value="handleCategorySearch"
+          />
           <n-input-group style="width: 300px">
             <n-input
               v-model:value="queryParams.title"
@@ -716,6 +728,22 @@ const buildItemSearchTags = (item = {}) => {
 const buildListRequestConfig = () => {
   const keyword = normalizeSearchKeyword(queryParams.title);
   const shouldUseSearch = isSearchMode.value && !!keyword;
+  const shouldUseLegacyCategorySearch = !!activeSearchCategory.value;
+
+  if (shouldUseLegacyCategorySearch) {
+    return {
+      method: 'POST',
+      key: `info-gap-category-search-${queryParams.type}-p${queryParams.pageNum}-${encodeURIComponent(activeSearchCategory.value)}`,
+      url: '/info_gap/search',
+      payload: {
+        pageNum: queryParams.pageNum,
+        pageSize: queryParams.pageSize,
+        keyword: undefined,
+        tagId: null,
+        category: activeSearchCategory.value,
+      },
+    };
+  }
 
   if (!shouldUseSearch) {
     const listUrl = queryParams.type === 'myself' || queryParams.type === 'follow'
@@ -1013,10 +1041,10 @@ const handleTagSearch = async (tag) => {
 };
 
 const handleCategorySearch = async (category) => {
-  queryParams.title = normalizeSearchKeyword(category);
-  isSearchMode.value = !!queryParams.title;
+  queryParams.title = '';
+  isSearchMode.value = true;
   activeSearchTagId.value = null;
-  activeSearchCategory.value = queryParams.title;
+  activeSearchCategory.value = normalizeSearchKeyword(category);
   queryParams.type = 'hot';
   await syncToPage(1);
 };
@@ -1043,9 +1071,9 @@ const syncToPage = async (page) => {
 
   const nextType = queryParams.type || 'hot';
   const nextTitle = queryParams.title;
-  const nextSearchMode = isSearchMode.value && !!nextTitle;
   const nextTagId = activeSearchTagId.value;
   const nextCategory = activeSearchCategory.value;
+  const nextSearchMode = isSearchMode.value && (!!nextTitle || !!nextCategory);
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
@@ -1064,8 +1092,12 @@ const syncToPage = async (page) => {
     type: nextType,
   };
 
-  if (isSearchMode.value && nextTitle) {
-    nextQuery.title = nextTitle;
+  if (isSearchMode.value && (nextTitle || nextCategory)) {
+    if (nextTitle) {
+      nextQuery.title = nextTitle;
+    } else {
+      delete nextQuery.title;
+    }
     nextQuery.search = '1';
     if (nextTagId != null) {
       nextQuery.tagId = String(nextTagId);
@@ -1102,7 +1134,7 @@ watch(
       if (getRouteSearchMode()) {
         queryParams.type = getRouteType();
         queryParams.title = getRouteTitle();
-        isSearchMode.value = !!queryParams.title;
+        isSearchMode.value = !!queryParams.title || !!getRouteCategory();
         activeSearchTagId.value = getRouteTagId();
         activeSearchCategory.value = getRouteCategory();
         loadData();
@@ -1113,7 +1145,7 @@ watch(
     queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
-    isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
+    isSearchMode.value = getRouteSearchMode() && (!!queryParams.title || !!getRouteCategory());
     activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
     activeSearchCategory.value = isSearchMode.value ? getRouteCategory() : '';
     loadData();
