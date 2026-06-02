@@ -1086,10 +1086,20 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35);
+  animation: label-pulse 3s ease-in-out infinite;
+}
+@keyframes label-pulse {
+  0%, 100% { box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35); }
+  50% { box-shadow: 2px 0 20px rgba(249, 115, 22, 0.6); }
 }
 .notice-label-2 {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.35);
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow: 2px 0 12px rgba(16, 185, 129, 0.35);
+}
+.notice-bar-2 {
+  background: linear-gradient(90deg, #ecfdf5 0%, #e0f2fe 40%, #ede9fe 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
 }
 .notice-scroll-wrap {
   flex: 1;
@@ -1112,7 +1122,7 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  animation: notice-scroll 32s linear infinite;
+  animation: notice-scroll 60s linear infinite;
 }
 .notice-item {
   display: inline-flex;
