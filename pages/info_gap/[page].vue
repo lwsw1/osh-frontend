@@ -1,5 +1,11 @@
 <template>
   <div class="info-gap-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">💡 信息差</span>
+    </div>
     <n-alert title="平台风险公告" type="warning" class="risk-alert">
       不良信息、恶法内容将被加入页面名单，严重者封封！警告三次将永久封禁账号！
     </n-alert>
@@ -1459,6 +1465,20 @@ useHead({ title: '信息差 - 开源助手' });
   display: flex;
   flex-direction: column;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 10px;
+  margin-top: 8px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 .risk-alert {
   margin-bottom: 16px;

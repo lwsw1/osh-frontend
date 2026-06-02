@@ -1,5 +1,11 @@
 <template>
   <div class="tool-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb-nav">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">🛠️ 工具</span>
+    </div>
     <TransitionGroup name="tool-announcement-stack" tag="div" class="tool-announcement-stack">
       <div
         v-for="item in announcementToastList"
@@ -1093,6 +1099,19 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   margin: 0 auto;
   padding: 0 24px;
 }
+
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  padding: 14px 0 4px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 .tool-notice-section {
   margin-bottom: 14px;
 }
