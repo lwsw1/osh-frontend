@@ -53,11 +53,29 @@ useHead({ title: '审核 - 开源助手' });
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog']);
 const route = useRoute();
-const { hasAnyPermission } = usePermission();
+const user = useUser();
 
-const AUDIT_PAGE_PERMISSION = 'audit';
-
-const canAccessAuditPage = computed(() => hasAnyPermission(AUDIT_PAGE_PERMISSION));
+const MIN_AUDIT_ROLE_LEVEL = 5;
+const canAccessAuditPage = computed(() => {
+  let roleLevel = 0;
+  const fromUser = Number(user.value?.role?.level ?? 0);
+  if (Number.isFinite(fromUser) && fromUser > 0) {
+    roleLevel = fromUser;
+  }
+  if (process.client) {
+    try {
+      const roleStr = localStorage.getItem('__user_role__');
+      if (roleStr) {
+        const role = JSON.parse(roleStr);
+        const fromLocal = Number(role?.level ?? 0);
+        if (Number.isFinite(fromLocal) && fromLocal > 0) {
+          roleLevel = Math.max(roleLevel, fromLocal);
+        }
+      }
+    } catch {}
+  }
+  return roleLevel >= MIN_AUDIT_ROLE_LEVEL;
+});
 
 const resourceOptions = [
   { label: '课程', value: 'course' },
