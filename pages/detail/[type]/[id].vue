@@ -133,8 +133,28 @@
                     <p class="book-pay-tip">请在{{ bookPayCountdownText }}内完成支付，超时订单将自动关闭。若支付过程中取消支付，请关闭弹窗并重新发起购买。</p>
                 </div>
                 <div class="book-pay-amount">
-                    <span>应付金额</span>
-                    <strong>¥{{ data?.price }}</strong>
+                    <span>实付金额</span>
+                    <strong>¥{{ bookPayFinalAmountText }}</strong>
+                </div>
+            </section>
+
+            <section class="book-pay-section">
+                <div class="book-pay-section-head">
+                    <h4>积分抵扣</h4>
+                    <span>可用 {{ userPoints }} 积分</span>
+                </div>
+                <div class="book-pay-points-row">
+                    <NCheckbox
+                        v-model:checked="useBookPoints"
+                        :disabled="isPayChannelLocked || payLoading || userPoints <= 0"
+                    >
+                        使用积分抵扣
+                    </NCheckbox>
+                    <strong>-¥{{ bookPayDeductAmountText }}</strong>
+                </div>
+                <div class="book-pay-points-meta">
+                    <span>预计使用 {{ bookPayPointsUsed }} 积分</span>
+                    <span>原价 ¥{{ bookPayOriginalAmountText }}</span>
                 </div>
             </section>
 
@@ -189,6 +209,7 @@
         NGridItem,
         NIcon,
         NModal,
+        NCheckbox,
         NRadio,
         NRadioGroup,
         createDiscreteApi,
@@ -199,6 +220,7 @@
     
     const route = useRoute()
     const { id,type } = route.params
+    const user = useUser()
     
     // 使用权限系统，和课程模块保持一致
     const { hasPermission } = usePermission()
@@ -505,6 +527,10 @@
     const payQrcode = ref('')
     const payOrderNo = ref('')
     const payPaymentNo = ref('')
+    const payPointsUsed = ref(0)
+    const payDeductAmount = ref(0)
+    const payCashAmount = ref(null)
+    const useBookPoints = ref(false)
     const payLoading = ref(false)
     const BOOK_PAY_POLLING_INTERVAL = 2000
     const BOOK_PAY_ORDER_EXPIRE_SECONDS = 30 * 60
@@ -525,6 +551,31 @@
     const selectedChannelLabel = computed(() => {
         return channelOptions.find(item => item.value === payChannel.value)?.label || '当前方式'
     })
+    const bookPayOriginalAmount = computed(() => Number(data.value?.price || 0))
+    const userPoints = computed(() => Number(user.value?.asset?.points || 0))
+    const maxUsablePoints = computed(() => Math.floor(bookPayOriginalAmount.value * 10))
+    const estimatedBookPayPointsUsed = computed(() => {
+        if (!useBookPoints.value) {
+            return 0
+        }
+        return Math.max(0, Math.min(userPoints.value, maxUsablePoints.value))
+    })
+    const bookPayPointsUsed = computed(() => isPayChannelLocked.value ? payPointsUsed.value : estimatedBookPayPointsUsed.value)
+    const bookPayDeductAmount = computed(() => {
+        if (isPayChannelLocked.value) {
+            return payDeductAmount.value
+        }
+        return Number((estimatedBookPayPointsUsed.value / 10).toFixed(2))
+    })
+    const bookPayFinalAmount = computed(() => {
+        if (isPayChannelLocked.value && payCashAmount.value !== null) {
+            return payCashAmount.value
+        }
+        return Math.max(0, Number((bookPayOriginalAmount.value - bookPayDeductAmount.value).toFixed(2)))
+    })
+    const bookPayOriginalAmountText = computed(() => bookPayOriginalAmount.value.toFixed(2))
+    const bookPayDeductAmountText = computed(() => bookPayDeductAmount.value.toFixed(2))
+    const bookPayFinalAmountText = computed(() => bookPayFinalAmount.value.toFixed(2))
 
     function handlePayChannelChange(nextChannel) {
         if (nextChannel === payChannel.value || payLoading.value) {
@@ -558,13 +609,17 @@
                 method: 'POST',
                 baseURL: fetchConfig.baseURL,
                 headers: getAuthHeaders(),
-                body: { bookId: Number(id), channel: payChannel.value }
+                body: { bookId: Number(id), channel: payChannel.value, usePoints: useBookPoints.value }
             })
             if (res.code !== 200) {
                 createDiscreteApi(['message']).message.error(res.msg || '创建订单失败')
                 return
             }
             const result = res.data
+            payPointsUsed.value = Number(result.pointsUsed || 0)
+            payDeductAmount.value = Number(result.pointsDeductAmount || 0)
+            payCashAmount.value = Number(result.price || 0)
+            updateLocalUserPoints(result.remainingPoints)
             // 免费书直接刷新
             if (!result.needPay) {
                 showPayModal.value = false
@@ -592,6 +647,10 @@
         payOrderNo.value = ''
         payPaymentNo.value = ''
         bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
+        const pointsToRefund = payPointsUsed.value
+        payPointsUsed.value = 0
+        payDeductAmount.value = 0
+        payCashAmount.value = null
 
         if (!orderNo) {
             return
@@ -599,6 +658,9 @@
 
         try {
             await useCancelPayApi(orderNo)
+            if (pointsToRefund > 0) {
+                updateLocalUserPoints(userPoints.value + pointsToRefund)
+            }
         } catch (e) {
             // 取消失败不阻断用户重新选择支付方式，后端幂等处理最终状态
         }
@@ -618,6 +680,9 @@
                     payQrcode.value = ''
                     payOrderNo.value = ''
                     payPaymentNo.value = ''
+                    payPointsUsed.value = 0
+                    payDeductAmount.value = 0
+                    payCashAmount.value = null
                     bookPayRemainingSeconds.value = BOOK_PAY_ORDER_EXPIRE_SECONDS
                     showPayModal.value = false
                     createDiscreteApi(['message']).message.success('支付成功！')
@@ -669,6 +734,25 @@
     async function handleClosePayModal() {
         await cancelCurrentBookPayment()
         showPayModal.value = false
+    }
+
+    function updateLocalUserPoints(points) {
+        if (points === null || points === undefined || Number.isNaN(Number(points))) {
+            return
+        }
+        const nextPoints = String(Math.max(0, Number(points)))
+        user.value = {
+            ...(user.value || {}),
+            asset: {
+                ...(user.value?.asset || {}),
+                points: nextPoints
+            }
+        }
+        if (process.client) {
+            try {
+                localStorage.setItem('__user_asset__', JSON.stringify(user.value.asset))
+            } catch {}
+        }
     }
 
     onUnmounted(() => {
@@ -1118,6 +1202,32 @@
         padding: 0 4px;
     }
 
+    .book-pay-points-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 4px;
+    }
+
+    .book-pay-points-row strong {
+        color: #d03050;
+        font-size: 16px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .book-pay-points-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+        padding: 0 4px;
+        color: #7a8594;
+        font-size: 12px;
+    }
+
     .book-pay-qrcode-panel {
         min-height: 174px;
         padding: 22px 28px 28px;
@@ -1164,6 +1274,12 @@
 
         .book-pay-methods {
             grid-template-columns: 1fr;
+        }
+
+        .book-pay-points-meta {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 4px;
         }
 
         .book-pay-confirm {
