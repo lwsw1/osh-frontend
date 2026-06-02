@@ -37,20 +37,20 @@
       {{ item.contentPreview || '' }}{{ item.contentPreview ? '...' : '' }}
     </p>
     <div class="card-footer">
-      <div class="card-footer-meta">
-        <span class="footer-user">👤 {{ resolvedUserName }}</span>
+      <span class="footer-user">👤 {{ resolvedUserName }}</span>
+      <div class="card-footer-right">
+        <div class="card-footer-stats">
+          <span class="stat-chip" title="浏览数">
+            <span class="stat-icon">📖</span>{{ item.viewCount || 0 }}
+          </span>
+          <span class="stat-chip" title="点赞数">
+            <span class="stat-icon">👍</span>{{ item.likeCount || 0 }}
+          </span>
+          <span class="stat-chip" title="收藏数">
+            <span class="stat-icon">⭐</span>{{ item.favoriteCount || 0 }}
+          </span>
+        </div>
         <span class="footer-time">{{ resolvedTime }}</span>
-      </div>
-      <div class="card-footer-stats">
-        <span class="stat-chip" title="点赞数">
-          <span class="stat-icon">👍</span>{{ item.likeCount || 0 }}
-        </span>
-        <span class="stat-chip" title="收藏数">
-          <span class="stat-icon">⭐</span>{{ item.favoriteCount || 0 }}
-        </span>
-        <span class="stat-chip" title="浏览数">
-          <span class="stat-icon">📖</span>{{ item.viewCount || 0 }}
-        </span>
       </div>
     </div>
   </div>
@@ -316,41 +316,44 @@ function buildProcessingDayText(time, prefix = '处理中') {
 
 .card-footer {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: auto;
-  flex-shrink: 0;
-}
-
-.card-footer-meta {
-  display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: #6b7280;
-  height: 16px;
+  margin-top: auto;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.card-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .footer-user {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 60%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .footer-time {
   color: #9ca3af;
   flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .card-footer-stats {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: nowrap;
-  height: 22px;
+  align-items: center;
 }
 
 .stat-chip {
