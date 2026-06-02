@@ -66,45 +66,56 @@
         </button>
       </div>
       <div class="filter-row">
-        <div class="filter-row-content">
-          <n-input
-            v-model:value="keyword"
-            placeholder="搜索反馈标题或内容..."
-            clearable
-            class="filter-search"
-            @keyup.enter="handleSearch"
-          >
-            <template #suffix>
-              <n-button text @click="handleSearch">
-                🔍 搜索
-              </n-button>
-            </template>
-          </n-input>
-          <n-select
-            v-model:value="selectedTagIds"
-            multiple
-            clearable
-            filterable
-            max-tag-count="responsive"
-            :options="tagOptions"
-            placeholder="按标签筛选"
-            class="filter-control filter-tags"
-            @update:value="handleTagChange"
-          />
-          <n-select
-            v-model:value="selectedStatus"
-            :options="statusOptions"
-            clearable
-            placeholder="全部状态"
-            class="filter-control filter-status"
-            @update:value="handleStatusChange"
-          />
-          <n-select
-            v-model:value="sortType"
-            :options="sortOptions"
-            class="filter-control filter-sort"
-            @update:value="handleSortChange"
-          />
+        <div class="filter-toolbar">
+          <div class="filter-group filter-group-left">
+            <n-select
+              v-model:value="selectedStatus"
+              :options="statusOptions"
+              clearable
+              placeholder="全部状态"
+              class="filter-control filter-status"
+              @update:value="handleStatusChange"
+            />
+            <n-select
+              v-model:value="selectedTagIds"
+              multiple
+              clearable
+              filterable
+              max-tag-count="responsive"
+              :options="tagOptions"
+              placeholder="按标签筛选"
+              class="filter-control filter-tags"
+              @update:value="handleTagChange"
+            />
+          </div>
+          <div class="filter-group filter-group-right">
+            <div class="search-box">
+              <n-input
+                v-model:value="keyword"
+                clearable
+                placeholder="请输入订单号、反馈标题或关键字..."
+                class="filter-search"
+                @clear="handleSearch"
+                @keyup.enter="handleSearch"
+              >
+                <template #prefix>
+                  <n-icon class="filter-search-icon">
+                    <SearchOutline />
+                  </n-icon>
+                </template>
+              </n-input>
+              <n-button type="primary" class="search-btn" :style="{ '--n-height': '36px', '--n-border-radius': '6px' }" @click="handleSearch">搜索</n-button>
+            </div>
+            <div class="sort-select-shell">
+              <span class="sort-leading-icon" aria-hidden="true">⇅</span>
+              <n-select
+                v-model:value="sortType"
+                :options="sortOptions"
+                class="filter-control filter-sort with-leading-icon"
+                @update:value="handleSortChange"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -167,7 +178,8 @@
 import { ref, onMounted, computed, onActivated, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { NButton, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
+import { NButton, NIcon, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
+import { SearchOutline } from '@vicons/ionicons5'
 import { 
   apiGetFeedbackCategories, 
   apiGetFeedbackTags,
@@ -199,7 +211,7 @@ const selectedTagIds = ref([])
 // 默认不附加状态筛选，首屏展示全部反馈
 const selectedStatus = ref(null)
 const keyword = ref('')
-const sortType = ref('hot') // 默认按最热排序
+const sortType = ref('hot')
 const pageNum = ref(1)
 const pageSize = ref(9)
 const total = ref(0)
@@ -248,8 +260,9 @@ const hasUserScrolled = ref(false)
 
 // 排序选项
 const sortOptions = [
-  { label: '🔥 最热', value: 'hot' },
-  { label: '🆕 最新', value: 'latest' }
+  { label: '最热', value: 'hot' },
+  { label: '最新', value: 'latest' },
+  { label: '相关', value: 'related' }
 ]
 const queryModeOptions = [
   { label: '全部反馈', value: 'all' },
@@ -438,12 +451,27 @@ function handleTagChange() {
 }
 
 function handleSearch() {
+  if (isSearchMode() && sortType.value === 'hot') {
+    sortType.value = 'related'
+  }
   loadFeedback()
 }
 
-function handleSortChange() {
+function handleSortChange(value) {
+  if (value === 'related' && !isSearchMode()) {
+    sortType.value = 'hot'
+  }
   loadFeedback()
 }
+
+watch(keyword, (value, oldValue) => {
+  const hadKeyword = !!oldValue?.trim()
+  const hasKeyword = !!value?.trim()
+  if (hadKeyword && !hasKeyword && sortType.value === 'related') {
+    sortType.value = 'hot'
+    loadFeedback()
+  }
+})
 
 /**
  * 加载下一页反馈。
@@ -517,13 +545,25 @@ async function fetchFeedbackPage(nextPageNum) {
   const res = await apiPageFeedback(buildFeedbackPageParams(nextPageNum))
 
   const rows = applyFeedbackInteractionPatches(res.rows || [])
-  const pinned = rows.filter(item => item.isPinned === 1)
-  const normal = rows.filter(item => item.isPinned === 0)
+  if (isSearchMode()) {
+    pinnedList.value = []
+    if (nextPageNum === 1) {
+      feedbackList.value = rows
+    } else {
+      feedbackList.value.push(...rows)
+    }
+    pageNum.value = nextPageNum
+    total.value = res.total || 0
+    return
+  }
+  const pinned = rows.filter(item => normalizePinnedFlag(item?.isPinned) === 1)
+  const normal = rows.filter(item => normalizePinnedFlag(item?.isPinned) !== 1)
 
   if (nextPageNum === 1) {
     pinnedList.value = pinned
     feedbackList.value = normal
   } else {
+    pinnedList.value.push(...pinned)
     feedbackList.value.push(...normal)
   }
 
@@ -531,9 +571,20 @@ async function fetchFeedbackPage(nextPageNum) {
   total.value = res.total || 0
 }
 
+function normalizePinnedFlag(isPinned) {
+  if (isPinned === 1 || isPinned === '1' || isPinned === true) {
+    return 1
+  }
+  return 0
+}
+
 function applyPatchedFeedbackList() {
   pinnedList.value = applyFeedbackInteractionPatches(pinnedList.value)
   feedbackList.value = applyFeedbackInteractionPatches(feedbackList.value)
+}
+
+function isSearchMode() {
+  return !!keyword.value?.trim()
 }
 
 /**
@@ -692,16 +743,34 @@ function destroyLoadMoreObserver() {
   margin-bottom: 0;
 }
 
-.filter-row-content {
+.filter-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.filter-group-left {
   gap: 12px;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+.filter-group-right {
+  gap: 16px;
+  flex: 0 0 auto;
 }
 
 .filter-search {
-  flex: 1 1 280px;
-  min-width: 220px;
+  width: 300px;
+  flex: 0 0 auto;
 }
 
 .filter-control {
@@ -709,15 +778,87 @@ function destroyLoadMoreObserver() {
 }
 
 .filter-tags {
-  width: 200px;
+  width: 220px;
 }
 
 .filter-status {
-  width: 130px;
+  width: 136px;
 }
 
 .filter-sort {
-  width: 130px;
+  width: 112px;
+}
+
+.sort-select-shell {
+  position: relative;
+  width: 112px;
+  flex: 0 0 auto;
+}
+
+.sort-leading-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.filter-search-icon {
+  color: #94a3b8;
+}
+
+.with-leading-icon :deep(.n-base-selection) {
+  padding-left: 18px;
+}
+
+.filter-control :deep(.n-base-selection),
+.filter-search :deep(.n-input) {
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.filter-control {
+  --n-border: 1px solid #d9d9d9;
+  --n-border-hover: 1px solid #2563eb;
+  --n-border-focus: 1px solid #2563eb;
+  --n-border-active: 1px solid #2563eb;
+  --n-border-radius: 6px;
+  --n-height: 36px;
+}
+
+.filter-control :deep(.n-base-selection) {
+  min-height: 36px;
+  box-shadow: none;
+  background: #fff;
+}
+
+.search-box {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 36px;
+}
+
+.filter-search :deep(.n-input) {
+  --n-border: 1px solid #d9d9d9;
+  --n-border-hover: 1px solid #2563eb;
+  --n-border-focus: 1px solid #2563eb;
+  --n-border-radius: 6px;
+  --n-height: 36px;
+  background: #fff;
+}
+
+.search-btn {
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.filter-search :deep(.n-input .n-input__input-el) {
+  font-size: 13px;
 }
 
 /* 类目筛选 chip */
@@ -806,6 +947,29 @@ function destroyLoadMoreObserver() {
 @media (max-width: 768px) {
   .page-wrapper {
     padding: 16px 12px;
+  }
+
+  .filter-box {
+    padding: 14px;
+  }
+
+  .filter-toolbar,
+  .filter-group-left,
+  .filter-group-right {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-group-right {
+    gap: 12px;
+  }
+
+  .filter-search,
+  .filter-tags,
+  .filter-status,
+  .sort-select-shell,
+  .filter-sort {
+    width: 100%;
   }
 
   .feedback-list {
