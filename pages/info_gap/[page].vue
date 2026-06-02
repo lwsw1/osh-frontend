@@ -624,6 +624,13 @@ const selectedTagIdsForSelect = computed({
 });
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
+const normalizeSearchTagId = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+    return null;
+  }
+  return text;
+};
 
 const stripInfoGapNoPrefix = (value) => {
   const text = String(value ?? '').trim();
@@ -691,7 +698,7 @@ const findCandidateTagIdByName = (label) => {
     (tag) => normalizeSearchKeyword(tag.name).toLowerCase() === normalizedLabel.toLowerCase()
   );
 
-  return matchedTag?.id ?? null;
+  return normalizeSearchTagId(matchedTag?.id);
 };
 
 const resolveTagMeta = (item = {}, index) => {
@@ -704,7 +711,7 @@ const resolveTagMeta = (item = {}, index) => {
   const matchedId = candidates.find((value) => value !== null && value !== undefined && value !== '');
 
   return label ? {
-    id: matchedId !== undefined ? Number(matchedId) : findCandidateTagIdByName(label),
+    id: matchedId !== undefined ? normalizeSearchTagId(matchedId) : findCandidateTagIdByName(label),
     label,
   } : null;
 };
@@ -719,8 +726,8 @@ const buildItemSearchTags = (item = {}) => {
 };
 
 const buildListRequestConfig = () => {
-  const title = normalizeSearchKeyword(queryParams.title);
-  const shouldUseSearch = isSearchMode.value && (!!title || activeSearchTagId.value != null);
+  const keyword = normalizeSearchKeyword(queryParams.title);
+  const shouldUseSearch = isSearchMode.value && !!keyword;
 
   if (!shouldUseSearch) {
     const listUrl = queryParams.type === 'myself' || queryParams.type === 'follow'
@@ -739,14 +746,12 @@ const buildListRequestConfig = () => {
 
   return {
     method: 'POST',
-    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
-    url: '/info_gap/search',
+    key: `info-gap-es-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(keyword || 'all')}`,
+    url: '/info_gap/es/search',
     payload: {
       pageNum: queryParams.pageNum,
       pageSize: queryParams.pageSize,
-      keyword: activeSearchTagId.value != null || activeSearchCategory.value ? undefined : title,
-      tagId: activeSearchTagId.value,
-      category: activeSearchCategory.value,
+      keyword,
     },
   };
 };
@@ -944,7 +949,7 @@ const handleClearSearch = async () => {
 const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
   isSearchMode.value = !!queryParams.title;
-  activeSearchTagId.value = tag?.id ?? null;
+  activeSearchTagId.value = normalizeSearchTagId(tag?.id);
   activeSearchCategory.value = '';
   queryParams.type = 'hot';
   await syncToPage(1);
@@ -970,8 +975,7 @@ const getRouteCategory = () =>
 const getRouteTagId = () => {
   const raw = route.query.tagId;
   if (raw === undefined || raw === null || raw === '') return null;
-  const parsed = Number(Array.isArray(raw) ? raw[0] : raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return normalizeSearchTagId(Array.isArray(raw) ? raw[0] : raw);
 };
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
