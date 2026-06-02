@@ -1,5 +1,15 @@
 <template>
   <div class="tool-container">
+    <TransitionGroup name="tool-announcement-stack" tag="div" class="tool-announcement-stack">
+      <div
+        v-for="item in announcementToastList"
+        :key="item.id"
+        class="tool-announcement-toast"
+      >
+        <div class="tool-announcement-toast-title">{{ item.title }}</div>
+      </div>
+    </TransitionGroup>
+
     <section class="notice-section tool-notice-section">
       <div class="notice-bar">
         <div class="notice-label">
@@ -390,6 +400,7 @@ const {
 const toolList = ref([]);
 const toolSystemAnnouncements = ref([]);
 const toolUserAnnouncements = ref([]);
+const announcementToastList = ref([]);
 const tagOptions = ref([]);
 const systemAnnouncementPaused = ref(false);
 const userAnnouncementPaused = ref(false);
@@ -418,6 +429,8 @@ const duplicatedSystemAnnouncements = computed(() => toolSystemAnnouncements.val
 const duplicatedUserAnnouncements = computed(() => toolUserAnnouncements.value.length > 1
   ? [...toolUserAnnouncements.value, ...toolUserAnnouncements.value]
   : toolUserAnnouncements.value);
+const TOOL_ANNOUNCEMENT_TOAST_MAX = 2;
+const TOOL_ANNOUNCEMENT_TOAST_DURATION = 3000;
 
 watch(
   () => route.query.page,
@@ -538,11 +551,41 @@ const handleToolAnnouncementToast = (event) => {
   if (!title) {
     return;
   }
-  message.info(title, {
-    duration: 4000,
-    closable: true,
-  });
+  pushAnnouncementToast(title);
 };
+
+function pushAnnouncementToast(title) {
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const toast = {
+    id,
+    title,
+    timer: null,
+  };
+
+  if (announcementToastList.value.length >= TOOL_ANNOUNCEMENT_TOAST_MAX) {
+    const removed = announcementToastList.value.shift();
+    if (removed?.timer) {
+      clearTimeout(removed.timer);
+    }
+  }
+
+  announcementToastList.value.push(toast);
+  toast.timer = window.setTimeout(() => {
+    removeAnnouncementToast(id);
+  }, TOOL_ANNOUNCEMENT_TOAST_DURATION);
+}
+
+function removeAnnouncementToast(id) {
+  announcementToastList.value = announcementToastList.value.filter((item) => {
+    if (item.id !== id) {
+      return true;
+    }
+    if (item.timer) {
+      clearTimeout(item.timer);
+    }
+    return false;
+  });
+}
 
 const loadTags = async () => {
   try {
@@ -574,6 +617,12 @@ onBeforeUnmount(() => {
     window.removeEventListener('message', handleIframeToolMessage);
     window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
+  announcementToastList.value.forEach((item) => {
+    if (item.timer) {
+      clearTimeout(item.timer);
+    }
+  });
+  announcementToastList.value = [];
 });
 
 watch(toolUserNoticeRefreshFlag, async (value) => {
@@ -1188,6 +1237,49 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   background: #fff; color: #18a058; border: 1px solid #18a058;
 }
 .btn-create-tool:hover { background: #18a058; color: #fff; }
+.tool-announcement-stack {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+.tool-announcement-toast {
+  min-width: 280px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
+}
+.tool-announcement-toast-title {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.tool-announcement-stack-enter-active,
+.tool-announcement-stack-leave-active {
+  transition: all 0.45s ease;
+}
+.tool-announcement-stack-enter-from {
+  opacity: 0;
+  transform: translate3d(0, -16px, 0);
+}
+.tool-announcement-stack-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -24px, 0);
+}
+.tool-announcement-stack-move {
+  transition: transform 0.35s ease;
+}
 .tool-content-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1566,6 +1658,16 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   font-weight: 800;
 }
 @media (max-width: 1100px) {
+  .tool-announcement-stack {
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    align-items: stretch;
+  }
+  .tool-announcement-toast {
+    min-width: 0;
+    max-width: none;
+  }
   .tool-content-layout {
     grid-template-columns: 1fr;
   }
