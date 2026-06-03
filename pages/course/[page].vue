@@ -1,5 +1,10 @@
 <template>
   <div class="course-container">
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">📚 课程</span>
+    </div>
     <CourseFilter
       v-model:modelValue="queryParams"
       :tag-options="tagOptions"
@@ -350,6 +355,24 @@ const handleDoCollect = async (courseId) => {
   margin: 0 auto;
   padding: 0 24px;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin: 14px 0 10px;
+}
+.bc-item {
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
+
 
 /* 多选操作栏 */
 .batch-bar {

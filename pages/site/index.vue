@@ -1,5 +1,11 @@
 <template>
     <div class="site-page">
+        <!-- 面包屑 -->
+        <div class="breadcrumb">
+          <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+          <span class="bc-sep">›</span>
+          <span class="bc-current">🖥️ 内部网站</span>
+        </div>
         <!-- 页面头部 -->
         <div class="site-header">
             <h2 class="site-title">内部网站</h2>
@@ -905,6 +911,19 @@ onMounted(() => {
 width: 100%;
     min-height: 60vh;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 12px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 .site-header {
     display: flex;
