@@ -145,8 +145,8 @@
                 </div>
                 <div class="book-pay-points-row">
                     <NCheckbox
-                        v-model:checked="useBookPoints"
-                        :disabled="isPayChannelLocked || payLoading || userPoints <= 0"
+                        :checked="useBookPoints"
+                        disabled
                     >
                         使用积分抵扣
                     </NCheckbox>
@@ -331,6 +331,7 @@
 
             // 电子书走统一支付弹窗
             if(type == "book"){
+                useBookPoints.value = true
                 showPayModal.value = true
                 return
             }
@@ -530,7 +531,7 @@
     const payPointsUsed = ref(0)
     const payDeductAmount = ref(0)
     const payCashAmount = ref(null)
-    const useBookPoints = ref(false)
+    const useBookPoints = ref(true)
     const payLoading = ref(false)
     const BOOK_PAY_POLLING_INTERVAL = 2000
     const BOOK_PAY_ORDER_EXPIRE_SECONDS = 30 * 60
@@ -609,7 +610,7 @@
                 method: 'POST',
                 baseURL: fetchConfig.baseURL,
                 headers: getAuthHeaders(),
-                body: { bookId: Number(id), channel: payChannel.value, usePoints: useBookPoints.value }
+                body: { bookId: Number(id), channel: payChannel.value }
             })
             if (res.code !== 200) {
                 createDiscreteApi(['message']).message.error(res.msg || '创建订单失败')
