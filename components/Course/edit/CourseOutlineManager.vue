@@ -138,7 +138,7 @@ import { ref, onMounted } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl, apiGetCourseMaterials, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import SectionEditModal from '~/components/Course/edit/SectionEditModal.vue';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
@@ -186,28 +186,29 @@ const showMaterials = ref(false);
 const materials = ref<any[]>([]);
 const materialsLoading = ref(false);
 
-async function loadMaterials() {
-  if (materials.value.length > 0) return; // 已加载过不重复请求
+async function loadMaterials(force = false) {
+  if (!force && materials.value.length > 0) return;
   materialsLoading.value = true;
   try {
-    const res: any = await $fetch(`/course/section/materials/${props.courseId}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        token: useCookie('token').value || '',
-        appid: fetchConfig.headers.appid,
-      },
-    });
+    const res: any = await apiGetCourseMaterials(props.courseId);
     if (res?.code === 200 && Array.isArray(res.data)) {
       materials.value = res.data;
+    } else if (res?.code === 401 || res?.msg?.includes('登录')) {
+      message.warning('登录已失效，请刷新页面重新登录后再查看资料');
+    } else if (res?.code !== 200) {
+      message.error(res?.msg || '加载资料失败');
     }
-  } catch {}
-  finally { materialsLoading.value = false; }
+  } catch (e) {
+    message.error('加载资料失败，请稍后重试');
+  } finally {
+    materialsLoading.value = false;
+  }
 }
 
 // 点击资料下载按钮：展开/收起，首次展开时加载
 function toggleMaterials() {
   showMaterials.value = !showMaterials.value;
-  if (showMaterials.value) loadMaterials();
+  if (showMaterials.value) loadMaterials(true);
 }
 
 async function downloadMat(mat: any) {

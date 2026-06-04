@@ -142,13 +142,26 @@ export function useSubmitQuestionApi(body) {
   });
 }
 
-export function useAddCourseApi(body) {
-  return useHttpPost('AddCourse', '/course/save', {
+/** 新增/修改课程 POST /pc/course/save（直调 $fetch，避免 useFetch 固定 key 缓存导致保存未生效） */
+export async function apiSaveCourse(body) {
+  return $fetch('/course/save', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
     body,
-    headers: {
-      token: localStorage.getItem('Token'), // 手动写死小写 key
-      appid: 'bd9d01ecc75dbbaaefce',
-    },
+  });
+}
+
+/** @deprecated 请用 apiSaveCourse */
+export function useAddCourseApi(body) {
+  return apiSaveCourse(body);
+}
+
+/** 获取课程资料列表（编辑/详情用，需登录） GET /pc/course/section/materials/{courseId} */
+export async function apiGetCourseMaterials(courseId) {
+  return $fetch(`/course/section/materials/${courseId}`, {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
   });
 }
 
