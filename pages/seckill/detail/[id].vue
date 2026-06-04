@@ -279,10 +279,10 @@ async function handleBuy() {
 
 function startPolling(seckillNo, needPay = true) {
   let count = 0
-  const MAX_POLLS = 30        // 每1秒轮询一次，最多30次 = 30秒超时
+  const MAX_POLLS = 120       // 每1秒轮询一次，最多120次 = 2分钟超时（对齐后端 orderKey TTL）
   // 建单正常耗时阈值：超过此次数后收到 null 视为"订单不存在/已超时"
-  // 而不是"建单中"。Kafka 消费通常在 3~5 秒内完成，这里给 8 秒余量
-  const NULL_TIMEOUT_COUNT = 8
+  // 而不是"建单中"。Kafka 消费通常在 3~5 秒内完成，这里给 20 秒余量
+  const NULL_TIMEOUT_COUNT = 20
   polling.value = setInterval(async () => {
     count++
     if (count > MAX_POLLS) {

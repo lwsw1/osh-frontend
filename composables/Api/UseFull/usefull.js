@@ -96,3 +96,23 @@ export async function apiWebsiteRating(websiteId, ratingType) {
     body: { websiteId, ratingType },
   })
 }
+
+/** 公告栏：新上线网站（无需登录） */
+export async function apiWebsiteNotices(limit = 10) {
+  return $fetch('/website/notices', {
+    method: 'GET',
+    baseURL,
+    headers: getWebsiteAuthHeaders(),
+    params: { limit },
+  })
+}
+
+/** 动态栏：用户好评动态（无需登录） */
+export async function apiWebsiteDynamics(limit = 10) {
+  return $fetch('/website/dynamics', {
+    method: 'GET',
+    baseURL,
+    headers: getWebsiteAuthHeaders(),
+    params: { limit },
+  })
+}
