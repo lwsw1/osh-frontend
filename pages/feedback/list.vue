@@ -10,11 +10,20 @@
       </n-breadcrumb>
     </div>
 
-    <!-- 公告区（跑马灯样式,置顶；纯文本展示，不可点击） -->
-    <AnnouncementMarquee
-      v-if="showAnnouncements"
-      :items="announcements"
-    />
+    <!-- 公告区（两列跑马灯：公告 + 动态） -->
+    <section v-if="showAnnouncements" class="notice-section">
+      <AnnouncementMarquee
+        :items="announcements"
+        label="公告"
+        label-icon="📢"
+      />
+      <AnnouncementMarquee
+        :items="announcements2"
+        label="动态"
+        label-icon="📡"
+        variant="secondary"
+      />
+    </section>
 
     <!-- 模式切换 + 提交反馈 -->
     <div class="view-mode-box">
@@ -180,11 +189,12 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { NButton, NIcon, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
 import { SearchOutline } from '@vicons/ionicons5'
-import { 
-  apiGetFeedbackCategories, 
+import {
+  apiGetFeedbackCategories,
   apiGetFeedbackTags,
   apiPageFeedback,
   apiGetFeedbackAnnouncements,
+  apiGetFeedbackDynamics,
   apiGetPendingConfirmCount,
   resolveFeedbackCategoryIcon,
   resolveFeedbackErrorMessage,
@@ -203,6 +213,8 @@ const isLoggedIn = computed(() => !!user.value)
 const categories = ref([])
 const feedbackTags = ref([])
 const announcements = ref([])
+/** 第二列公告（业务公告 / 动态，channel=2） */
+const announcements2 = ref([])
 const pinnedList = ref([])
 const feedbackList = ref([])
 const queryMode = ref('all')
@@ -278,8 +290,8 @@ const tagOptions = computed(() => feedbackTags.value.map(tag => ({
   value: tag.id
 })))
 // 公告独立于 queryMode 展示,且只在 onMounted 加载一次
-// 切换"全部 / 我的 / 收藏"时不再重新拉取,刷新页面才会再次加载
-const showAnnouncements = computed(() => announcements.value.length > 0)
+// 任一列有数据即展示公告区
+const showAnnouncements = computed(() => announcements.value.length > 0 || announcements2.value.length > 0)
 const emptyDescription = computed(() => {
   if (queryMode.value === 'mine') {
     return '暂无我的反馈'
@@ -375,9 +387,13 @@ async function loadTags() {
 
 async function loadAnnouncements() {
   try {
-    // 公告从统一公告表 osh_announcement(module='feedback', channel=1) 拉取
-    const res = await apiGetFeedbackAnnouncements(5)
-    announcements.value = Array.isArray(res?.data) ? res.data : []
+    // 并行拉取公告数据和互动动态数据
+    const [announcementRes, dynamicsRes] = await Promise.all([
+      apiGetFeedbackAnnouncements(5),
+      apiGetFeedbackDynamics(10)
+    ])
+    announcements.value = Array.isArray(announcementRes?.data) ? announcementRes.data : []
+    announcements2.value = Array.isArray(dynamicsRes?.data) ? dynamicsRes.data : []
   } catch (error) {
     message.error(resolveFeedbackErrorMessage(error, '加载公告失败'))
     console.error('加载公告失败:', error)
@@ -638,6 +654,14 @@ function destroyLoadMoreObserver() {
 }
 
 .breadcrumb-box {
+  margin-bottom: 20px;
+}
+
+/* 两列公告容器（对齐信息差页面 notice-section 布局） */
+.notice-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 20px;
 }
 

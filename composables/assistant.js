@@ -196,9 +196,27 @@ export function apiPageFeedback(params) {
 
 /**
  * 拉取反馈公告。
+ * @param {number} limit - 返回条数
+ * @param {number} [channel] - 公告频道（1=系统通知, 2=业务公告），默认 1
  */
-export function apiGetFeedbackAnnouncements(limit = 10) {
+export function apiGetFeedbackAnnouncements(limit = 10, channel) {
+  const query = { limit }
+  if (channel != null) {
+    query.channel = channel
+  }
   return assistantFetch('/feedback/announcement/list', {
+    query,
+  })
+}
+
+/**
+ * 获取反馈互动动态列表（点赞、收藏等事件）
+ *
+ * @param {number} [limit=10] - 返回条数
+ * @returns {Promise} 动态事件列表
+ */
+export function apiGetFeedbackDynamics(limit = 10) {
+  return assistantFetch('/feedback/dynamics/list', {
     query: { limit },
   })
 }
