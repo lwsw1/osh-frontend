@@ -64,7 +64,7 @@ import { NButton, NIcon } from 'naive-ui';
 import { CreateOutline } from '@vicons/ionicons5';
 import CourseOutlineManager from '~/components/Course/edit/CourseOutlineManager.vue';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
-import { apiGetMaterialUrl, getAuthHeaders } from '~/composables/Api/Course/course';
+import { apiGetMaterialUrl, apiGetCourseMaterials } from '~/composables/Api/Course/course';
 import { fetchConfig } from '~/composables/useHttp';
 
 const { permissionList } = usePermission();
@@ -175,14 +175,12 @@ async function openEditBasic() {
   // 加载课程资料列表
   let materials: any[] = [];
   try {
-    const matRes: any = await $fetch(`/course/section/materials/${props.data?.id}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        token: useCookie('token').value || '',
-        appid: fetchConfig.headers.appid,
-      },
-    });
+    const matRes: any = await apiGetCourseMaterials(props.data?.id);
     console.log('[EditBasic] 🔍 materials 完整响应:', matRes);
+    
+    if (matRes?.code !== 200) {
+      console.warn('[EditBasic] materials load failed:', matRes?.msg);
+    }
     
     // 兼容多种响应格式
     let rawMaterials = [];
@@ -196,10 +194,12 @@ async function openEditBasic() {
     
     materials = rawMaterials.map((m: any) => {
       console.log('[EditBasic] 🔍 单个资料原始数据:', m);
+      const storedPath = m.url && !String(m.url).startsWith('http') ? m.url : '';
       return {
         id: m.id || m.materialId,
         name: m.name || m.materialName || m.fileName || '',
-        url: m.url || m.fileUrl || m.downloadUrl || '',
+        url: String(m.url || '').startsWith('http') ? m.url : (m.downloadUrl || ''),
+        relativePath: m.relativePath || storedPath || '',
         size: m.fileSize ? (Number(m.fileSize) / 1024 / 1024).toFixed(2) + ' MB' : (m.size || ''),
         fileSize: m.fileSize || 0,
         type: m.fileType || m.type || m.extension || '',
