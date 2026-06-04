@@ -161,7 +161,7 @@ import {
   apiUploadCover,
   apiUploadMaterial,
   apiGetMaterialUrl,
-  useAddCourseApi,
+  apiSaveCourse,
   getAuthHeaders,
 } from '~/composables/Api/Course/course';
 import { fetchConfig } from '~/composables/useHttp';
@@ -357,6 +357,10 @@ const handleMatChange = async (e) => {
     matUploadProgress.value = 100;
     console.log('[上传资料] res.data:', res?.data);
     if (res?.code === 200) {
+      if (!res.data?.relativePath) {
+        message.error('资料上传失败：未返回存储路径，请重试');
+        return;
+      }
       materialList.value.push({
         id: res.data?.materialId,
         name: res.data?.materialName || res.data?.fileName || file.name,
@@ -421,6 +425,14 @@ const handlePublish = async () => {
     if (!selectedResourceType.value) { message.error('请选择资源类型'); return; }
   }
 
+  const mat = materialList.value[0];
+  if (mat && !mat.id) {
+    if (!mat.relativePath || mat.relativePath.startsWith('http')) {
+      message.error('资料上传未完成或地址无效，请重新上传资料');
+      return;
+    }
+  }
+
   loading.value = true;
 
   // 根据 resourceType 自动推导 freeType
@@ -465,22 +477,22 @@ const handlePublish = async () => {
             fileSize: mat.fileSize || 1,
           };
         }
-        // 新上传的资料：传 relativePath（相对路径），不传签名 URL
+        // 新上传的资料：只传 OSS 相对路径
         return {
           fileName: mat.name,
-          fileUrl: mat.relativePath || mat.url,
-          fileType: mat.type,
-          fileSize: mat.fileSize,
+          fileUrl: mat.relativePath,
+          fileType: mat.type || 'zip',
+          fileSize: mat.fileSize || 1,
         };
       })() : null,
     };
-    const { data, error } = await useAddCourseApi(submitData);
-    if (!error.value && data.value) {
+    const res = await apiSaveCourse(submitData);
+    if (res?.code === 200) {
       message.success(formValue.id ? '课程信息已更新！' : '课程创建成功！');
       emit('success');
       emit('update:show', false);
     } else {
-      message.error('保存失败');
+      message.error(res?.msg || '保存失败');
     }
   } catch { message.error('网络异常'); }
   finally { loading.value = false; }

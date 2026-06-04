@@ -15,6 +15,14 @@ export const useWsStatus      = () => useState('ws_status', () => 'disconnected'
 export const useProjectAnnouncements = () => useState('ws_project_announcements', () => [])
 export const useToolUserNoticeRefreshFlag = () => useState('ws_tool_user_notice_refresh', () => 0)
 
+// 广播型消息：只驱动页面局部刷新/公告展示，不进入每个用户的小铃铛通知列表
+const BROADCAST_TYPES = new Set([
+  'NEW_OPEN_PROJECT',
+  'TOOL_USER_NOTICE_REFRESH',
+  'SECKILL_NOTICE_UPDATE',
+  'SECKILL_DYNAMIC_NEW',
+])
+
 // ─── WebSocket 单例（非响应式）────────────────────────────────────────────────
 let _ws = null
 let _heartbeatTimer = null
@@ -83,9 +91,7 @@ export function useWebSocket() {
           read: false,
         }
 
-        // 广播类型消息：不推送到小铃铛通知列表
-        const BROADCAST_TYPES = ['NEW_OPEN_PROJECT', 'TOOL_USER_NOTICE_REFRESH']
-        const isBroadcast = BROADCAST_TYPES.includes(msg.type)
+        const isBroadcast = BROADCAST_TYPES.has(msg.type)
 
         if (!isBroadcast) {
           notifications.value.unshift(msg)

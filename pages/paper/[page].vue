@@ -1,4 +1,10 @@
 <template>
+  <div>
+  <div class="breadcrumb">
+    <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+    <span class="bc-sep">›</span>
+    <span class="bc-current">📝 考试</span>
+  </div>
   <n-grid :x-gap="20">
     <n-grid-item :span="18">
       <!-- 筛选栏：标签 / 我收藏的 / 关键字搜索 -->
@@ -77,6 +83,7 @@
       <HotCourseList />
     </n-grid-item>
   </n-grid>
+  </div>
 </template>
 
 <script setup>

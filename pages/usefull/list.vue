@@ -1,5 +1,11 @@
 <template>
   <div class="website-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">🌐 实用网站</span>
+    </div>
     <!-- 公告 & 动态滚动栏 -->
     <div class="notice-wrap">
       <!-- 公告行：新添加的实用网站 -->
@@ -575,6 +581,19 @@ onMounted(() => {
   background: #f5f7fa;
   min-height: calc(100vh - 40px);
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 12px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 /* 内容区 */
 .website-content {
