@@ -385,3 +385,9 @@ export async function apiSyncCoursesToEs() {
     headers: getAuthHeaders(),
   });
 }
+
+/** 小节 freeFlag 归一化：1=免费试看，0=付费 */
+export function normalizeSectionFreeFlag(value) {
+  if (value === 1 || value === true || value === '1') return 1;
+  return 0;
+}
