@@ -24,8 +24,8 @@
             @mouseleave="noticePaused = false"
           >
             <span class="notice-item" v-for="(item, i) in [...noticeItems, ...noticeItems]" :key="'n' + i">
-              <span class="notice-dot" style="background:#f59e0b"></span>
-              🌐 {{ item.title }}
+              <span class="notice-dot" :style="{ background: item.color || '#f59e0b' }"></span>
+              {{ item.icon || '🌐' }} {{ item.title }}
               <span class="notice-sep">｜</span>
             </span>
           </div>
@@ -50,8 +50,8 @@
             @mouseleave="dynamicPaused = false"
           >
             <span class="notice-item" v-for="(item, i) in [...dynamicItems, ...dynamicItems]" :key="'d' + i">
-              <span class="notice-dot" style="background:#3b82f6"></span>
-              👍 {{ item.title }}
+              <span class="notice-dot" :style="{ background: item.color || '#3b82f6' }"></span>
+              {{ item.icon || '👍' }} {{ item.title }}
               <span class="notice-sep">｜</span>
             </span>
           </div>
@@ -205,6 +205,8 @@ import {
   apiWebsiteFavorite,
   apiWebsiteCancelFavorite,
   apiWebsiteRating,
+  apiWebsiteNotices,
+  apiWebsiteDynamics,
 } from '~/composables/Api/UseFull/usefull'
 
 const { permissionList } = usePermission()
@@ -213,25 +215,31 @@ const canSubmit   = computed(() => permissionList.value.includes('website:submit
 const canFavorite = computed(() => permissionList.value.includes('website:favorite'))
 const canRating   = computed(() => permissionList.value.includes('website:rating:submit'))
 
-// ── 公告 & 动态（后端接口待实现，暂用 mock 数据占位）──
-const noticeItems = ref([
-  { title: '新网站上线：Roadmap.sh — 开发者学习路线图' },
-  { title: '新网站上线：Excalidraw — 在线手绘风格白板工具' },
-  { title: '新网站上线：Ray.so — 代码截图美化工具' },
-  { title: '新网站上线：Regex101 — 正则表达式在线调试' },
-  { title: '新网站上线：Carbon — 代码图片生成器' },
-])
-const dynamicItems = ref([
-  { title: '用户 张** 给「GitHub」点了好评' },
-  { title: '用户 李** 给「掘金」点了好评' },
-  { title: '用户 王** 给「Stack Overflow」点了好评' },
-  { title: '用户 赵** 给「MDN Web Docs」点了好评' },
-  { title: '用户 陈** 给「Can I Use」点了好评' },
-])
+// ── 公告 & 动态（调真实接口）──
+const noticeItems = ref([])
+const dynamicItems = ref([])
 const noticePaused  = ref(false)
 const dynamicPaused = ref(false)
 const noticeDuration  = computed(() => Math.max(20, noticeItems.value.length * 6))
 const dynamicDuration = computed(() => Math.max(25, dynamicItems.value.length * 5))
+
+const loadNotices = async () => {
+  try {
+    const res = await apiWebsiteNotices(10)
+    if (res?.code === 200) noticeItems.value = res.data || []
+  } catch (e) {
+    console.error('加载公告失败', e)
+  }
+}
+
+const loadDynamics = async () => {
+  try {
+    const res = await apiWebsiteDynamics(10)
+    if (res?.code === 200) dynamicItems.value = res.data || []
+  } catch (e) {
+    console.error('加载动态失败', e)
+  }
+}
 
 const queryParams = reactive({
   pageNum: 1,
@@ -450,6 +458,8 @@ const handleRating = async (item, ratingType) => {
 const goCreate = () => navigateTo('/usefull/create')
 
 onMounted(() => {
+  loadNotices()
+  loadDynamics()
   loadTags()
   loadList()
 })

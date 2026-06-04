@@ -118,6 +118,8 @@ function handleCardClick() {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 .seckill-card:hover {
   transform: translateY(-2px);
@@ -160,7 +162,7 @@ function handleCardClick() {
   background: #f5f5f5;
   border-radius: 6px 6px 0 0;
 }
-.cover-course { height: 100px; }
+.cover-course { height: 120px; }
 .cover-book   { height: 120px; }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -196,7 +198,12 @@ function handleCardClick() {
 }
 
 /* 内容 */
-.card-body { padding: 8px 10px 10px; }
+.card-body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
 .card-title {
   font-size: 12px;
   font-weight: 600;
@@ -230,7 +237,8 @@ function handleCardClick() {
   font-weight: 600;
 }
 .info-divider { margin: 0 3px; color: #ddd; }
-.card-divider { height: 1px; background: #f5f5f5; margin: 5px 0; }
+/* 分割线自动顶到底部，把价格和按钮推到卡片底部，实现等高对齐 */
+.card-divider { height: 1px; background: #f5f5f5; margin: 5px 0; margin-top: auto; }
 
 .card-price {
   display: flex;
