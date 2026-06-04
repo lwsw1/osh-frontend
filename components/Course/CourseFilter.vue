@@ -6,11 +6,14 @@
         v-model:value="modelValue.tags"
         multiple
         filterable
+        remote
         placeholder="选择标签筛选"
-        :options="tagOptions"
+        :options="displayTagOptions"
+        :loading="tagLoading"
         style="width: 200px"
         clearable
         :max-tag-count="1"
+        @search="handleTagSearch"
       />
 
       <!-- 排序 -->
@@ -62,31 +65,69 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { NSelect } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
 import { getAuthHeaders } from '~/composables/Api/Course/course';
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
+  tagOptions: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['update:modelValue', 'search', 'create']);
 
-const tagOptions = ref([]);
+const tagLoading = ref(false);
+const innerTagOptions = ref([]);
 
-onMounted(async () => {
+const mapTagOptions = (list) => (list || []).map((item) => ({
+  label: item.name || item.tagName || String(item),
+  value: item.id ?? item,
+}));
+
+const loadTags = async (keyword = '') => {
+  tagLoading.value = true;
   try {
     const res = await $fetch('/course/tags', {
       baseURL: fetchConfig.baseURL,
       headers: getAuthHeaders(),
+      params: keyword ? { keyword } : undefined,
     });
     const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
-    tagOptions.value = list.map((item) => ({
-      label: item.name || item.tagName || String(item),
-      value: item.id ?? item,
-    }));
+    innerTagOptions.value = mapTagOptions(list);
   } catch (e) {
     console.error('加载标签失败', e);
+  } finally {
+    tagLoading.value = false;
+  }
+};
+
+const displayTagOptions = computed(() => {
+  const parent = Array.isArray(props.tagOptions) ? props.tagOptions : [];
+  if (parent.length > 0) return parent;
+  return innerTagOptions.value;
+});
+
+let tagSearchTimer = null;
+const handleTagSearch = (query) => {
+  if (tagSearchTimer) clearTimeout(tagSearchTimer);
+  tagSearchTimer = setTimeout(() => {
+    loadTags(String(query || '').trim());
+  }, 200);
+};
+
+watch(
+  () => props.tagOptions,
+  (list) => {
+    if (Array.isArray(list) && list.length > 0) {
+      innerTagOptions.value = list;
+    }
+  },
+  { deep: true }
+);
+
+onMounted(() => {
+  if (!props.tagOptions?.length) {
+    loadTags();
   }
 });
 
