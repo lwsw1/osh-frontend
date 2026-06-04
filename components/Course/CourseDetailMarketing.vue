@@ -74,6 +74,7 @@ const COURSE_STATUS_TEXT_MAP: Record<number, string> = {
   2: '审核中',
   4: '审核通过',
   6: '审核未通过',
+  7: '已隐藏',
 };
 
 const props = defineProps<{
@@ -91,6 +92,7 @@ const courseStatusText = computed(() => COURSE_STATUS_TEXT_MAP[courseStatusCode.
 const courseStatusTone = computed(() => {
   if (courseStatusCode.value === 4) return 'pass';
   if (courseStatusCode.value === 6) return 'reject';
+  if (courseStatusCode.value === 7) return 'pending';
   return 'pending';
 });
 

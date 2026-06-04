@@ -81,6 +81,7 @@ const COURSE_STATUS_TEXT_MAP = {
   2: '审核中',
   4: '审核通过',
   6: '审核未通过',
+  7: '已隐藏',
 };
 
 const canManageCourse = computed(() => {
@@ -102,6 +103,7 @@ const auditStatusText = computed(() =>
 
 const auditStatusTone = computed(() => {
   if (courseStatusCode.value === 6) return 'reject';
+  if (courseStatusCode.value === 7) return 'default';
   if (courseStatusCode.value === 2) return 'pending';
   return 'default';
 });

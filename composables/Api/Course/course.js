@@ -231,6 +231,16 @@ export async function apiUpdateCourse(body) {
   });
 }
 
+/** 批量隐藏课程（下架）POST /pc/course/hide */
+export async function apiHideCourses(ids) {
+  return $fetch('/course/hide', {
+    method: 'POST',
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+    body: { ids },
+  });
+}
+
 /** 删除课程 DELETE /pc/course/{courseId} */
 export async function apiDeleteCourse(courseId) {
   return $fetch(`/course/${courseId}`, {
