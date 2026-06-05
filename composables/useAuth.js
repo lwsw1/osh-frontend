@@ -86,6 +86,7 @@ export const clearAuthState = () => {
   if (process.client) {
     localStorage.removeItem('token')
     localStorage.removeItem('Token')
+    localStorage.removeItem('__user_cache__')
   }
 
   clearPermissions()
@@ -149,15 +150,12 @@ export async function useRefreshUserInfo(){
 
 // 退出登录
 export async function useLogout(){
-    await useLogoutApi()
-    const user = useUser()
-    user.value = null
-    const token = useCookie("token")
-    token.value = null
-    // 清除权限缓存
-    clearPermissions()
-    const permissions = usePermissions()
-    permissions.value = []
+    try {
+        await useLogoutApi()
+    } catch (_) {
+        // 远端 logout 失败（网络/Redis 抖动）不阻塞本地退出
+    }
+    clearAuthState()
     // 断开 WebSocket 连接并清空通知
     if (process.client) {
         const { disconnect, clearAll } = useWebSocket()
