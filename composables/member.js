@@ -67,3 +67,29 @@ export async function apiCancelMemberPay(orderNo) {
   })
   return unwrapMemberResponse(res)
 }
+export async function apiGetMemberAdminPlans() {
+  const res = await $fetch('/user/member/admin/plans', {
+    baseURL: fetchConfig.baseURL,
+    headers: memberHeaders(),
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiUpdateMemberPlanConfig(body) {
+  const res = await $fetch('/user/member/admin/plan/config', {
+    baseURL: fetchConfig.baseURL,
+    method: 'POST',
+    headers: memberHeaders(),
+    body,
+  })
+  return unwrapMemberResponse(res)
+}
+export async function apiUpdateMemberPricingRule(body) {
+  const res = await $fetch('/user/member/admin/plan/pricing-rule', {
+    baseURL: fetchConfig.baseURL,
+    method: 'POST',
+    headers: memberHeaders(),
+    body,
+  })
+  return unwrapMemberResponse(res)
+}
