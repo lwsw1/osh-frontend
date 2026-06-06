@@ -102,7 +102,7 @@
               <n-input
                 v-model:value="keyword"
                 clearable
-                placeholder="请输入订单号、反馈标题或关键字..."
+                placeholder="搜索问题、标题或内容"
                 class="filter-search"
                 @clear="handleSearch"
                 @keyup.enter="handleSearch"
@@ -793,7 +793,7 @@ function destroyLoadMoreObserver() {
 }
 
 .filter-search {
-  width: 300px;
+  width: 420px;
   flex: 0 0 auto;
 }
 

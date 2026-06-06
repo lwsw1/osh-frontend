@@ -147,9 +147,9 @@ function resolveDotColor(index) {
   100% { transform: translateX(-50%); }
 }
 
-/* 滚动速度：与信息差页面 notice-bar 保持一致（60s） */
+/* 滚动速度：调整为更慢的滚动速度（120s） */
 .announcement-scroll-track {
-  animation-duration: 60s !important;
+  animation-duration: 120s !important;
 }
 
 .announcement-item {
