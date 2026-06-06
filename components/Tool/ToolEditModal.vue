@@ -78,10 +78,6 @@
             placeholder="请选择资源类型"
           />
         </n-form-item>
-
-        <n-form-item label="资源等级">
-          <n-input-number v-model:value="formValue.level" :min="1" :max="99" style="width: 100%" />
-        </n-form-item>
       </div>
 
       <n-form-item label="备注">
@@ -147,7 +143,6 @@ const formValue = reactive({
   status: 1,
   remark: '',
   resourceType: 'FREE',
-  level: 1,
   tags: [],
   packages: [],
 });
@@ -220,7 +215,6 @@ function resetForm() {
   formValue.status = source.status ?? 1;
   formValue.remark = source.remark || '';
   formValue.resourceType = normalizeResourceType(source.resourceType || source.resource_type || 'FREE');
-  formValue.level = Number(source.level || 1);
   formValue.tags = Array.isArray(source.tags) ? [...source.tags] : [];
   formValue.packages = normalizePackages(source.packages);
 }
@@ -346,7 +340,6 @@ async function handleSubmit() {
       status: formValue.status,
       remark: formValue.remark,
       resourceType: formValue.resourceType,
-      level: formValue.level,
       packages: submitPackages.map((item) => ({
         id: item.id,
         packageName: `${item.useCount}次使用套餐`,
