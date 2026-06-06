@@ -280,51 +280,12 @@ export function apiCreateComment(feedbackId, payload) {
 // ==================== 反馈系统 - 管理员接口 ====================
 
 /**
- * 反馈管理列表（分页）
- */
-export function apiAdminPageFeedback(params) {
-  return assistantFetch('/admin/feedback/page', {
-    method: 'POST',
-    body: params,
-  })
-}
-
-/**
- * 置顶反馈
- */
-export function apiPinFeedback(feedbackId, pinOrder) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/pin`, {
-    method: 'POST',
-    params: { pinOrder },
-  })
-}
-
-/**
- * 取消置顶
- */
-export function apiUnpinFeedback(feedbackId) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/unpin`, {
-    method: 'POST',
-  })
-}
-
-/**
  * 更新反馈状态
  */
 export function apiUpdateFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/admin/feedback/${feedbackId}/status`, {
     method: 'POST',
     body: payload,
-  })
-}
-
-/**
- * 追加处理备注（不改变状态）
- */
-export function apiAppendFeedbackRemark(feedbackId, remark) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/remark`, {
-    method: 'POST',
-    body: { remark },
   })
 }
 
@@ -345,15 +306,6 @@ export function apiConfirmFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/assistant/feedback/${feedbackId}/confirm`, {
     method: 'POST',
     body: payload,
-  })
-}
-
-/**
- * 删除反馈
- */
-export function apiDeleteFeedback(feedbackId) {
-  return assistantFetch(`/admin/feedback/${feedbackId}`, {
-    method: 'DELETE',
   })
 }
 
@@ -392,37 +344,5 @@ export function apiFavoriteFeedback(feedbackId) {
 export function apiUnfavoriteFeedback(feedbackId) {
   return assistantFetch(`/feedback/${feedbackId}/favorite`, {
     method: 'DELETE',
-  })
-}
-
-// ==================== MCP 调试测试接口 ====================
-
-/**
- * 健康检查
- */
-export function apiMcpHealthCheck() {
-  return $fetch('/public/mcp-debug/health', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
-}
-
-/**
- * 数据库连接测试
- */
-export function apiMcpTestDatabase() {
-  return $fetch('/public/mcp-debug/test-database', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
-}
-
-/**
- * 完整链路测试
- */
-export function apiMcpTestFullChain() {
-  return $fetch('/public/mcp-debug/test-full-chain', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
   })
 }
