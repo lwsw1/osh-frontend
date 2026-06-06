@@ -1,6 +1,12 @@
 
 <template>
   <div class="seckill-page">
+    <!-- 面包屑 -->
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">🔥 限时秒杀</span>
+    </div>
     <!-- 公告 & 动态滚动栏（顶部，参考首页） -->
     <div class="seckill-notice-wrap">
       <!-- 公告行 -->
@@ -714,6 +720,19 @@ function handleBuy(item) {
   background: #fff;
   min-height: 100vh;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  padding: 12px 24px 0;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #e1251b; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 /* ── Body ────────────────────────────────────────────────── */
 .seckill-body {

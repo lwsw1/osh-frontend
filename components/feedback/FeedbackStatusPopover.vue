@@ -220,7 +220,7 @@ function resolveEventType(record) {
 
 function buildEventText(record) {
   if (!record?.fromStatus) {
-    return record?.remark || '工单已提交'
+    return '工单已提交'
   }
   return `${resolveFeedbackStatusText(record.fromStatus)} → ${resolveFeedbackStatusText(record.toStatus)}`
 }

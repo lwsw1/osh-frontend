@@ -238,9 +238,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createDiscreteApi } from 'naive-ui';
+import { createDiscreteApi, NSpin, NSwitch } from 'naive-ui';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiUploadVideo } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiUploadVideo, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import DocEditor from '~/components/Course/edit/DocEditor.vue';
 import { handleAuthExpired } from '~/composables/useAuth';
 
@@ -411,7 +411,7 @@ function hydrateSection(found: any, chapter: any) {
   sectionData.value = { ...found, parentId: resolvedParentId };
   breadcrumb.chapter = chapter?.title || '';
   form.title = found.title || '';
-  form.freeFlag = found.freeFlag ?? 0;
+  form.freeFlag = normalizeSectionFreeFlag(found.freeFlag);
   form.content = found.textContent || found.content || '';
   form.docId = found.docId || null;
   const rootSection = found.docId ? findDocRootSection(found.docId) : null;

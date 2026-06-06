@@ -10,11 +10,20 @@
       </n-breadcrumb>
     </div>
 
-    <!-- 公告区（跑马灯样式,置顶；纯文本展示，不可点击） -->
-    <AnnouncementMarquee
-      v-if="showAnnouncements"
-      :items="announcements"
-    />
+    <!-- 公告区（两列跑马灯：公告 + 动态） -->
+    <section v-if="showAnnouncements" class="notice-section">
+      <AnnouncementMarquee
+        :items="announcements"
+        label="公告"
+        label-icon="📢"
+      />
+      <AnnouncementMarquee
+        :items="announcements2"
+        label="动态"
+        label-icon="📡"
+        variant="secondary"
+      />
+    </section>
 
     <!-- 模式切换 + 提交反馈 -->
     <div class="view-mode-box">
@@ -66,45 +75,56 @@
         </button>
       </div>
       <div class="filter-row">
-        <div class="filter-row-content">
-          <n-input
-            v-model:value="keyword"
-            placeholder="搜索反馈标题或内容..."
-            clearable
-            class="filter-search"
-            @keyup.enter="handleSearch"
-          >
-            <template #suffix>
-              <n-button text @click="handleSearch">
-                🔍 搜索
-              </n-button>
-            </template>
-          </n-input>
-          <n-select
-            v-model:value="selectedTagIds"
-            multiple
-            clearable
-            filterable
-            max-tag-count="responsive"
-            :options="tagOptions"
-            placeholder="按标签筛选"
-            class="filter-control filter-tags"
-            @update:value="handleTagChange"
-          />
-          <n-select
-            v-model:value="selectedStatus"
-            :options="statusOptions"
-            clearable
-            placeholder="全部状态"
-            class="filter-control filter-status"
-            @update:value="handleStatusChange"
-          />
-          <n-select
-            v-model:value="sortType"
-            :options="sortOptions"
-            class="filter-control filter-sort"
-            @update:value="handleSortChange"
-          />
+        <div class="filter-toolbar">
+          <div class="filter-group filter-group-left">
+            <n-select
+              v-model:value="selectedStatus"
+              :options="statusOptions"
+              clearable
+              placeholder="全部状态"
+              class="filter-control filter-status"
+              @update:value="handleStatusChange"
+            />
+            <n-select
+              v-model:value="selectedTagIds"
+              multiple
+              clearable
+              filterable
+              max-tag-count="responsive"
+              :options="tagOptions"
+              placeholder="按标签筛选"
+              class="filter-control filter-tags"
+              @update:value="handleTagChange"
+            />
+          </div>
+          <div class="filter-group filter-group-right">
+            <div class="search-box">
+              <n-input
+                v-model:value="keyword"
+                clearable
+                placeholder="搜索问题、标题或内容"
+                class="filter-search"
+                @clear="handleSearch"
+                @keyup.enter="handleSearch"
+              >
+                <template #prefix>
+                  <n-icon class="filter-search-icon">
+                    <SearchOutline />
+                  </n-icon>
+                </template>
+              </n-input>
+              <n-button type="primary" class="search-btn" :style="{ '--n-height': '36px', '--n-border-radius': '6px' }" @click="handleSearch">搜索</n-button>
+            </div>
+            <div class="sort-select-shell">
+              <span class="sort-leading-icon" aria-hidden="true">⇅</span>
+              <n-select
+                v-model:value="sortType"
+                :options="sortOptions"
+                class="filter-control filter-sort with-leading-icon"
+                @update:value="handleSortChange"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -167,12 +187,14 @@
 import { ref, onMounted, computed, onActivated, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { NButton, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
-import { 
-  apiGetFeedbackCategories, 
+import { NButton, NIcon, NInput, NBreadcrumb, NBreadcrumbItem, NSpin, NEmpty, NSelect, NTabs, NTab } from 'naive-ui'
+import { SearchOutline } from '@vicons/ionicons5'
+import {
+  apiGetFeedbackCategories,
   apiGetFeedbackTags,
   apiPageFeedback,
   apiGetFeedbackAnnouncements,
+  apiGetFeedbackDynamics,
   apiGetPendingConfirmCount,
   resolveFeedbackCategoryIcon,
   resolveFeedbackErrorMessage,
@@ -191,6 +213,8 @@ const isLoggedIn = computed(() => !!user.value)
 const categories = ref([])
 const feedbackTags = ref([])
 const announcements = ref([])
+/** 第二列公告（业务公告 / 动态，channel=2） */
+const announcements2 = ref([])
 const pinnedList = ref([])
 const feedbackList = ref([])
 const queryMode = ref('all')
@@ -199,7 +223,7 @@ const selectedTagIds = ref([])
 // 默认不附加状态筛选，首屏展示全部反馈
 const selectedStatus = ref(null)
 const keyword = ref('')
-const sortType = ref('hot') // 默认按最热排序
+const sortType = ref('hot')
 const pageNum = ref(1)
 const pageSize = ref(9)
 const total = ref(0)
@@ -248,8 +272,9 @@ const hasUserScrolled = ref(false)
 
 // 排序选项
 const sortOptions = [
-  { label: '🔥 最热', value: 'hot' },
-  { label: '🆕 最新', value: 'latest' }
+  { label: '最热', value: 'hot' },
+  { label: '最新', value: 'latest' },
+  { label: '相关', value: 'related' }
 ]
 const queryModeOptions = [
   { label: '全部反馈', value: 'all' },
@@ -265,8 +290,8 @@ const tagOptions = computed(() => feedbackTags.value.map(tag => ({
   value: tag.id
 })))
 // 公告独立于 queryMode 展示,且只在 onMounted 加载一次
-// 切换"全部 / 我的 / 收藏"时不再重新拉取,刷新页面才会再次加载
-const showAnnouncements = computed(() => announcements.value.length > 0)
+// 任一列有数据即展示公告区
+const showAnnouncements = computed(() => announcements.value.length > 0 || announcements2.value.length > 0)
 const emptyDescription = computed(() => {
   if (queryMode.value === 'mine') {
     return '暂无我的反馈'
@@ -362,9 +387,13 @@ async function loadTags() {
 
 async function loadAnnouncements() {
   try {
-    // 公告从统一公告表 osh_announcement(module='feedback', channel=1) 拉取
-    const res = await apiGetFeedbackAnnouncements(5)
-    announcements.value = Array.isArray(res?.data) ? res.data : []
+    // 并行拉取公告数据和互动动态数据
+    const [announcementRes, dynamicsRes] = await Promise.all([
+      apiGetFeedbackAnnouncements(5),
+      apiGetFeedbackDynamics(10)
+    ])
+    announcements.value = Array.isArray(announcementRes?.data) ? announcementRes.data : []
+    announcements2.value = Array.isArray(dynamicsRes?.data) ? dynamicsRes.data : []
   } catch (error) {
     message.error(resolveFeedbackErrorMessage(error, '加载公告失败'))
     console.error('加载公告失败:', error)
@@ -438,12 +467,27 @@ function handleTagChange() {
 }
 
 function handleSearch() {
+  if (isSearchMode() && sortType.value === 'hot') {
+    sortType.value = 'related'
+  }
   loadFeedback()
 }
 
-function handleSortChange() {
+function handleSortChange(value) {
+  if (value === 'related' && !isSearchMode()) {
+    sortType.value = 'hot'
+  }
   loadFeedback()
 }
+
+watch(keyword, (value, oldValue) => {
+  const hadKeyword = !!oldValue?.trim()
+  const hasKeyword = !!value?.trim()
+  if (hadKeyword && !hasKeyword && sortType.value === 'related') {
+    sortType.value = 'hot'
+    loadFeedback()
+  }
+})
 
 /**
  * 加载下一页反馈。
@@ -517,13 +561,25 @@ async function fetchFeedbackPage(nextPageNum) {
   const res = await apiPageFeedback(buildFeedbackPageParams(nextPageNum))
 
   const rows = applyFeedbackInteractionPatches(res.rows || [])
-  const pinned = rows.filter(item => item.isPinned === 1)
-  const normal = rows.filter(item => item.isPinned === 0)
+  if (isSearchMode()) {
+    pinnedList.value = []
+    if (nextPageNum === 1) {
+      feedbackList.value = rows
+    } else {
+      feedbackList.value.push(...rows)
+    }
+    pageNum.value = nextPageNum
+    total.value = res.total || 0
+    return
+  }
+  const pinned = rows.filter(item => normalizePinnedFlag(item?.isPinned) === 1)
+  const normal = rows.filter(item => normalizePinnedFlag(item?.isPinned) !== 1)
 
   if (nextPageNum === 1) {
     pinnedList.value = pinned
     feedbackList.value = normal
   } else {
+    pinnedList.value.push(...pinned)
     feedbackList.value.push(...normal)
   }
 
@@ -531,9 +587,20 @@ async function fetchFeedbackPage(nextPageNum) {
   total.value = res.total || 0
 }
 
+function normalizePinnedFlag(isPinned) {
+  if (isPinned === 1 || isPinned === '1' || isPinned === true) {
+    return 1
+  }
+  return 0
+}
+
 function applyPatchedFeedbackList() {
   pinnedList.value = applyFeedbackInteractionPatches(pinnedList.value)
   feedbackList.value = applyFeedbackInteractionPatches(feedbackList.value)
+}
+
+function isSearchMode() {
+  return !!keyword.value?.trim()
 }
 
 /**
@@ -587,6 +654,14 @@ function destroyLoadMoreObserver() {
 }
 
 .breadcrumb-box {
+  margin-bottom: 20px;
+}
+
+/* 两列公告容器（对齐信息差页面 notice-section 布局） */
+.notice-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 20px;
 }
 
@@ -692,16 +767,34 @@ function destroyLoadMoreObserver() {
   margin-bottom: 0;
 }
 
-.filter-row-content {
+.filter-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.filter-group-left {
   gap: 12px;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+.filter-group-right {
+  gap: 16px;
+  flex: 0 0 auto;
 }
 
 .filter-search {
-  flex: 1 1 280px;
-  min-width: 220px;
+  width: 420px;
+  flex: 0 0 auto;
 }
 
 .filter-control {
@@ -709,15 +802,87 @@ function destroyLoadMoreObserver() {
 }
 
 .filter-tags {
-  width: 200px;
+  width: 220px;
 }
 
 .filter-status {
-  width: 130px;
+  width: 136px;
 }
 
 .filter-sort {
-  width: 130px;
+  width: 112px;
+}
+
+.sort-select-shell {
+  position: relative;
+  width: 112px;
+  flex: 0 0 auto;
+}
+
+.sort-leading-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.filter-search-icon {
+  color: #94a3b8;
+}
+
+.with-leading-icon :deep(.n-base-selection) {
+  padding-left: 18px;
+}
+
+.filter-control :deep(.n-base-selection),
+.filter-search :deep(.n-input) {
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.filter-control {
+  --n-border: 1px solid #d9d9d9;
+  --n-border-hover: 1px solid #2563eb;
+  --n-border-focus: 1px solid #2563eb;
+  --n-border-active: 1px solid #2563eb;
+  --n-border-radius: 6px;
+  --n-height: 36px;
+}
+
+.filter-control :deep(.n-base-selection) {
+  min-height: 36px;
+  box-shadow: none;
+  background: #fff;
+}
+
+.search-box {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 36px;
+}
+
+.filter-search :deep(.n-input) {
+  --n-border: 1px solid #d9d9d9;
+  --n-border-hover: 1px solid #2563eb;
+  --n-border-focus: 1px solid #2563eb;
+  --n-border-radius: 6px;
+  --n-height: 36px;
+  background: #fff;
+}
+
+.search-btn {
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.filter-search :deep(.n-input .n-input__input-el) {
+  font-size: 13px;
 }
 
 /* 类目筛选 chip */
@@ -806,6 +971,29 @@ function destroyLoadMoreObserver() {
 @media (max-width: 768px) {
   .page-wrapper {
     padding: 16px 12px;
+  }
+
+  .filter-box {
+    padding: 14px;
+  }
+
+  .filter-toolbar,
+  .filter-group-left,
+  .filter-group-right {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-group-right {
+    gap: 12px;
+  }
+
+  .filter-search,
+  .filter-tags,
+  .filter-status,
+  .sort-select-shell,
+  .filter-sort {
+    width: 100%;
   }
 
   .feedback-list {

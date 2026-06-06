@@ -1,7 +1,13 @@
 <template>
     <LoadingGroup :pending="pending" :error="error">
         <div class="reader-shell">
-            <div class="book-reader-layout">
+        <!-- 面包屑 -->
+        <div class="breadcrumb">
+          <span class="bc-item" @click="$router.push('/list/book/1')">🏠 电子书列表</span>
+          <span class="bc-sep">›</span>
+          <span class="bc-current">📖 阅读</span>
+        </div>
+        <div class="book-reader-layout">
                 <aside class="book-sidebar">
                     <div class="book-info-card">
                         <div class="shelf-glow"></div>
@@ -174,6 +180,19 @@ definePageMeta({
     margin: 0 auto;
     padding: 18px 10px 34px;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 14px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 .book-reader-layout {
     display: grid;

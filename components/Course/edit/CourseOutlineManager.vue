@@ -138,7 +138,7 @@ import { ref, onMounted } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl, apiGetCourseMaterials, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import SectionEditModal from '~/components/Course/edit/SectionEditModal.vue';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
@@ -163,7 +163,7 @@ function toggleChapter(id: number) {
 // ===== 跳转学习中心（普通用户点击小节） =====
 function goToStudy(section: any) {
   // TRIAL 模式下点击锁定章节，给提示而不是跳转
-  if (props.accessLevel !== 'FULL' && section.freeFlag !== 1) {
+  if (props.accessLevel !== 'FULL' && normalizeSectionFreeFlag(section.freeFlag) !== 1) {
     message.warning('该章节需要购买课程后才能观看');
     return;
   }
@@ -186,28 +186,29 @@ const showMaterials = ref(false);
 const materials = ref<any[]>([]);
 const materialsLoading = ref(false);
 
-async function loadMaterials() {
-  if (materials.value.length > 0) return; // 已加载过不重复请求
+async function loadMaterials(force = false) {
+  if (!force && materials.value.length > 0) return;
   materialsLoading.value = true;
   try {
-    const res: any = await $fetch(`/course/section/materials/${props.courseId}`, {
-      baseURL: fetchConfig.baseURL,
-      headers: {
-        token: useCookie('token').value || '',
-        appid: fetchConfig.headers.appid,
-      },
-    });
+    const res: any = await apiGetCourseMaterials(props.courseId);
     if (res?.code === 200 && Array.isArray(res.data)) {
       materials.value = res.data;
+    } else if (res?.code === 401 || res?.msg?.includes('登录')) {
+      message.warning('登录已失效，请刷新页面重新登录后再查看资料');
+    } else if (res?.code !== 200) {
+      message.error(res?.msg || '加载资料失败');
     }
-  } catch {}
-  finally { materialsLoading.value = false; }
+  } catch (e) {
+    message.error('加载资料失败，请稍后重试');
+  } finally {
+    materialsLoading.value = false;
+  }
 }
 
 // 点击资料下载按钮：展开/收起，首次展开时加载
 function toggleMaterials() {
   showMaterials.value = !showMaterials.value;
-  if (showMaterials.value) loadMaterials();
+  if (showMaterials.value) loadMaterials(true);
 }
 
 async function downloadMat(mat: any) {
@@ -234,8 +235,8 @@ async function loadOutline() {
         ...ch,
         children: (ch.children || ch.sections || []).map((s: any) => ({
           ...s,
-          // 确保每个小节都有 parentId，用所在章节的 id 兜底
           parentId: s.parentId || s.chapterId || ch.id,
+          freeFlag: normalizeSectionFreeFlag(s.freeFlag),
         })),
       }));
     }

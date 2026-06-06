@@ -1,5 +1,21 @@
 <template>
   <div class="tool-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb-nav">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">🛠️ 工具</span>
+    </div>
+    <TransitionGroup name="tool-announcement-stack" tag="div" class="tool-announcement-stack">
+      <div
+        v-for="item in announcementToastList"
+        :key="item.id"
+        class="tool-announcement-toast"
+      >
+        <div class="tool-announcement-toast-title">{{ item.title }}</div>
+      </div>
+    </TransitionGroup>
+
     <section class="notice-section tool-notice-section">
       <div class="notice-bar">
         <div class="notice-label">
@@ -390,6 +406,7 @@ const {
 const toolList = ref([]);
 const toolSystemAnnouncements = ref([]);
 const toolUserAnnouncements = ref([]);
+const announcementToastList = ref([]);
 const tagOptions = ref([]);
 const systemAnnouncementPaused = ref(false);
 const userAnnouncementPaused = ref(false);
@@ -418,6 +435,8 @@ const duplicatedSystemAnnouncements = computed(() => toolSystemAnnouncements.val
 const duplicatedUserAnnouncements = computed(() => toolUserAnnouncements.value.length > 1
   ? [...toolUserAnnouncements.value, ...toolUserAnnouncements.value]
   : toolUserAnnouncements.value);
+const TOOL_ANNOUNCEMENT_TOAST_MAX = 2;
+const TOOL_ANNOUNCEMENT_TOAST_DURATION = 3000;
 
 watch(
   () => route.query.page,
@@ -538,11 +557,41 @@ const handleToolAnnouncementToast = (event) => {
   if (!title) {
     return;
   }
-  message.info(title, {
-    duration: 4000,
-    closable: true,
-  });
+  pushAnnouncementToast(title);
 };
+
+function pushAnnouncementToast(title) {
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const toast = {
+    id,
+    title,
+    timer: null,
+  };
+
+  if (announcementToastList.value.length >= TOOL_ANNOUNCEMENT_TOAST_MAX) {
+    const removed = announcementToastList.value.shift();
+    if (removed?.timer) {
+      clearTimeout(removed.timer);
+    }
+  }
+
+  announcementToastList.value.push(toast);
+  toast.timer = window.setTimeout(() => {
+    removeAnnouncementToast(id);
+  }, TOOL_ANNOUNCEMENT_TOAST_DURATION);
+}
+
+function removeAnnouncementToast(id) {
+  announcementToastList.value = announcementToastList.value.filter((item) => {
+    if (item.id !== id) {
+      return true;
+    }
+    if (item.timer) {
+      clearTimeout(item.timer);
+    }
+    return false;
+  });
+}
 
 const loadTags = async () => {
   try {
@@ -574,6 +623,12 @@ onBeforeUnmount(() => {
     window.removeEventListener('message', handleIframeToolMessage);
     window.removeEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
+  announcementToastList.value.forEach((item) => {
+    if (item.timer) {
+      clearTimeout(item.timer);
+    }
+  });
+  announcementToastList.value = [];
 });
 
 watch(toolUserNoticeRefreshFlag, async (value) => {
@@ -1044,6 +1099,19 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   margin: 0 auto;
   padding: 0 24px;
 }
+
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  padding: 14px 0 4px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 .tool-notice-section {
   margin-bottom: 14px;
 }
@@ -1086,10 +1154,20 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35);
+  animation: label-pulse 3s ease-in-out infinite;
+}
+@keyframes label-pulse {
+  0%, 100% { box-shadow: 2px 0 12px rgba(249, 115, 22, 0.35); }
+  50% { box-shadow: 2px 0 20px rgba(249, 115, 22, 0.6); }
 }
 .notice-label-2 {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.35);
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow: 2px 0 12px rgba(16, 185, 129, 0.35);
+}
+.notice-bar-2 {
+  background: linear-gradient(90deg, #ecfdf5 0%, #e0f2fe 40%, #ede9fe 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
 }
 .notice-scroll-wrap {
   flex: 1;
@@ -1112,7 +1190,7 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  animation: notice-scroll 32s linear infinite;
+  animation: notice-scroll 60s linear infinite;
 }
 .notice-item {
   display: inline-flex;
@@ -1178,6 +1256,49 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   background: #fff; color: #18a058; border: 1px solid #18a058;
 }
 .btn-create-tool:hover { background: #18a058; color: #fff; }
+.tool-announcement-stack {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+.tool-announcement-toast {
+  min-width: 280px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
+}
+.tool-announcement-toast-title {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.tool-announcement-stack-enter-active,
+.tool-announcement-stack-leave-active {
+  transition: all 0.45s ease;
+}
+.tool-announcement-stack-enter-from {
+  opacity: 0;
+  transform: translate3d(0, -16px, 0);
+}
+.tool-announcement-stack-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -24px, 0);
+}
+.tool-announcement-stack-move {
+  transition: transform 0.35s ease;
+}
 .tool-content-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1556,6 +1677,16 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   font-weight: 800;
 }
 @media (max-width: 1100px) {
+  .tool-announcement-stack {
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    align-items: stretch;
+  }
+  .tool-announcement-toast {
+    min-width: 0;
+    max-width: none;
+  }
   .tool-content-layout {
     grid-template-columns: 1fr;
   }

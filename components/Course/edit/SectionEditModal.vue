@@ -124,7 +124,7 @@ import {
   CloudUploadOutline, PlayCircleOutline, DownloadOutline, TrashOutline, DocumentOutline,
 } from '@vicons/ionicons5';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiUploadVideo, apiGetSectionVideo, apiUploadMaterial, apiDeleteMaterial, apiGetVideoUrls, apiGetMaterialUrl } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiUploadVideo, apiGetSectionVideo, apiUploadMaterial, apiDeleteMaterial, apiGetVideoUrls, apiGetMaterialUrl, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 
 const props = defineProps<{ show: boolean; section: any; courseId: string }>();
 const emit = defineEmits(['update:show', 'saved']);
@@ -152,7 +152,7 @@ const matUploading = ref(false);
 watch([() => props.show, () => props.section?.id], async ([show]) => {
   if (!show || !props.section) return;  activeTab.value = 'info';
   form.title = props.section.title || '';
-  form.freeFlag = props.section.freeFlag || 0;
+  form.freeFlag = normalizeSectionFreeFlag(props.section.freeFlag);
   form.content = props.section.content || props.section.textContent || '';
   videoInfo.value = null;
   videoRelativePath.value = '';
