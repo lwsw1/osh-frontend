@@ -1,0 +1,69 @@
+function memberHeaders() {
+  const token = useCookie('token')
+  const headers = { appid: fetchConfig.headers.appid }
+  if (token.value) {
+    headers.token = token.value
+    headers.Authorization = `Bearer ${token.value}`
+  }
+  return headers
+}
+
+function unwrapMemberResponse(res) {
+  if (res?.code !== undefined && res.code !== 200) {
+    throw new Error(res.msg || res.data || '请求失败')
+  }
+  return res?.data ?? res
+}
+
+export async function apiGetMemberCenter() {
+  const res = await $fetch('/user/member/center', {
+    baseURL: fetchConfig.baseURL,
+    headers: memberHeaders(),
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiGetMemberPlans() {
+  const res = await $fetch('/user/member/plans', {
+    baseURL: fetchConfig.baseURL,
+    headers: memberHeaders(),
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiCreateMemberCheckout(body) {
+  const res = await $fetch('/user/member/checkout', {
+    baseURL: fetchConfig.baseURL,
+    method: 'POST',
+    headers: memberHeaders(),
+    body,
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiGetMemberOrders() {
+  const res = await $fetch('/user/member/orders', {
+    baseURL: fetchConfig.baseURL,
+    headers: memberHeaders(),
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiGetMemberPayStatus(orderNo) {
+  const res = await $fetch('/pay/status', {
+    baseURL: fetchConfig.baseURL,
+    headers: memberHeaders(),
+    query: { orderNo },
+  })
+  return unwrapMemberResponse(res)
+}
+
+export async function apiCancelMemberPay(orderNo) {
+  const res = await $fetch('/pay/cancel', {
+    baseURL: fetchConfig.baseURL,
+    method: 'POST',
+    headers: memberHeaders(),
+    query: { orderNo },
+  })
+  return unwrapMemberResponse(res)
+}
