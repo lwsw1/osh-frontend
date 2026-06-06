@@ -193,10 +193,6 @@
                   >✏️</button>
                 </div>
               </div>
-              <div v-if="record.remark" class="timeline-remark">
-                <span class="remark-icon">💬</span>
-                <span class="remark-text">{{ record.remark }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -1797,33 +1793,6 @@ function formatTime(time) {
 
 .timeline-edit-btn:hover {
   background: #f1f5f9;
-}
-
-/* 处理意见 */
-.timeline-remark {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 8px 14px 8px 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border-left: 3px solid #e2e8f0;
-}
-
-.remark-icon {
-  font-size: 13px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.remark-text {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #374151;
-  font-weight: 500;
-  white-space: pre-wrap;
-  padding-left: 2px;
 }
 
 .management-status-trigger {
