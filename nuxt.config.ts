@@ -21,16 +21,8 @@ export default defineNuxtConfig({
   },
 
   // 添加代理配置解决跨域问题
+  // 答疑模块已统一为 /pc/qna，与其他模块一致，直接走通用 /api -> /pc 规则即可。
   routeRules: {
-    '/api/qna/**': {
-      proxy: 'http://localhost:8081/api/qna/**'
-    },
-    // @deprecated 2026-05-31 后端已统一去除 public 前缀（/pc/public/feedback -> /pc/feedback），
-    // 前端 composables/assistant.js 已全部切到新路径，本规则保留作为过渡期标记，
-    // 确认线上无残留请求后可整段删除。
-    // '/api/public/**': {
-    //   proxy: 'http://localhost:8081/public/**'
-    // },
     '/api/**': {
       proxy: 'http://localhost:8081/pc/**'
     }
@@ -39,18 +31,6 @@ export default defineNuxtConfig({
   // Nitro 配置 - 开发环境代理（解决 CORS 跨域）
   nitro: {
     devProxy: {
-      '/api/qna': {
-        target: 'http://localhost:8081/api/qna',
-        changeOrigin: true,
-        prependPath: true
-      },
-      // @deprecated 2026-05-31 后端已统一去除 public 前缀，前端不再走 /api/public，
-      // 通用规则 /api -> /pc 已能覆盖。保留作为过渡期标记，确认无残留请求后可整段删除。
-      // '/api/public': {
-      //   target: 'http://localhost:8081/public',
-      //   changeOrigin: true,
-      //   prependPath: true
-      // },
       '/api': {
         target: 'http://localhost:8081/pc',
         changeOrigin: true,
