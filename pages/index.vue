@@ -535,11 +535,6 @@
               <!-- 封面背景装饰 -->
               <div class="cover-deco-circle cover-deco-1"></div>
               <div class="cover-deco-circle cover-deco-2"></div>
-              <!-- 课程标题 -->
-              <div class="cover-title-block">
-                <div class="cover-main-title">{{ course.coverTitle }}</div>
-                <div class="cover-sub-title">{{ course.coverSub }}</div>
-              </div>
               <!-- 购买人数 -->
               <div class="cover-heat">🔥 {{ course.buyCountText }}人购买</div>
             </div>
@@ -550,6 +545,8 @@
                 <div class="course-tags">
                   <span class="course-tag" v-for="tag in course.tags" :key="tag">{{ tag }}</span>
                 </div>
+              </div>
+              <div class="course-views-row">
                 <span class="course-views-text">👁 {{ course.viewsText }}浏览</span>
               </div>
               <div class="course-footer">
@@ -980,16 +977,14 @@
             </div>
             <!-- 内容摘要 -->
             <p class="fb-card-summary">{{ item.summary || item.content }}</p>
-            <!-- 底部：用户 + 时间 -->
+            <!-- 底部：用户 + 时间 + 统计 -->
             <div class="fb-card-meta">
               <span class="fb-meta-user">👤 {{ item.username || item.user || '用户' }}</span>
-              <span class="fb-meta-time">{{ item.createTime || item.time }}</span>
-            </div>
-            <!-- 统计数据 -->
-            <div class="fb-card-stats">
-              <span class="fb-stat-item">🔥 {{ item.likeCount || 0 }}</span>
-              <span class="fb-stat-item">⭐ {{ item.collectCount || 0 }}</span>
-              <span class="fb-stat-item">📖 {{ item.viewCount || 0 }}</span>
+              <div class="fb-card-stats">
+                <span class="fb-stat-item">🔥 {{ item.likeCount || 0 }}</span>
+                <span class="fb-stat-item">⭐ {{ item.collectCount || 0 }}</span>
+                <span class="fb-stat-item">� {{ item.viewCount || 0 }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1849,9 +1844,12 @@ async function loadHotCourses() {
       hotCoursesRaw.value = res.data
       // 从后端返回的第一条数据中取列表页路径
       hotCourseListUrl.value = res.data[0]?.listUrl || ''
+    } else {
+      hotCoursesRaw.value = mockCourses
     }
   } catch (e) {
     console.warn('热门课程接口请求失败，使用默认数据', e)
+    hotCoursesRaw.value = mockCourses
   }
 }
 
@@ -1942,9 +1940,12 @@ async function loadHotBooks() {
     })
     if (res && res.data && res.data.length > 0) {
       hotBooksRaw.value = res.data
+    } else {
+      hotBooksRaw.value = mockBooks
     }
   } catch (e) {
     console.warn('精选电子书接口请求失败', e)
+    hotBooksRaw.value = mockBooks
   }
 }
 
@@ -1988,9 +1989,12 @@ async function loadHotExams() {
     })
     if (res && res.data && res.data.length > 0) {
       hotExamsRaw.value = res.data
+    } else {
+      hotExamsRaw.value = mockExams
     }
   } catch (e) {
     console.warn('在线考试接口请求失败', e)
+    hotExamsRaw.value = mockExams
   }
 }
 
@@ -2032,9 +2036,12 @@ async function loadHotQa() {
     })
     if (res && res.data && res.data.length > 0) {
       hotQaRaw.value = res.data
+    } else {
+      hotQaRaw.value = mockQnA
     }
   } catch (e) {
     console.warn('答疑社区接口请求失败', e)
+    hotQaRaw.value = mockQnA
   }
 }
 const hotQa = computed(() => hotQaRaw.value.map((item, index) => ({
@@ -2057,9 +2064,12 @@ async function loadHotSeckill() {
     })
     if (res && res.data && res.data.length > 0) {
       hotSeckillRaw.value = res.data
+    } else {
+      hotSeckillRaw.value = mockFlashsale
     }
   } catch (e) {
     console.warn('限时秒杀接口请求失败', e)
+    hotSeckillRaw.value = mockFlashsale
   }
 }
 const defaultSeckillBgs = [
@@ -2096,9 +2106,12 @@ async function loadHotGroup() {
     })
     if (res && res.data && res.data.length > 0) {
       hotGroupRaw.value = res.data
+    } else {
+      hotGroupRaw.value = mockGroup
     }
   } catch (e) {
     console.warn('拼团优惠接口请求失败', e)
+    hotGroupRaw.value = mockGroup
   }
 }
 const defaultGroupBgs = [
@@ -2134,9 +2147,12 @@ async function loadHotOpenProject() {
     })
     if (res && res.data && res.data.length > 0) {
       hotOpenProjectRaw.value = res.data
+    } else {
+      hotOpenProjectRaw.value = mockOpenProjects
     }
   } catch (e) {
     console.warn('开源项目接口请求失败', e)
+    hotOpenProjectRaw.value = mockOpenProjects
   }
 }
 const defaultOpenProjectBgs = [
@@ -2171,9 +2187,12 @@ async function loadHotWebsite() {
     })
     if (res && res.data && res.data.length > 0) {
       hotWebsiteRaw.value = res.data
+    } else {
+      hotWebsiteRaw.value = mockWebsites
     }
   } catch (e) {
     console.warn('实用网站接口请求失败', e)
+    hotWebsiteRaw.value = mockWebsites
   }
 }
 const defaultWebsiteBgs = [
@@ -2201,9 +2220,12 @@ async function loadHotInfoGap() {
     })
     if (res && res.data && res.data.length > 0) {
       hotInfoGapRaw.value = res.data
+    } else {
+      hotInfoGapRaw.value = mockInfoGap
     }
   } catch (e) {
     console.warn('技术信息差接口请求失败', e)
+    hotInfoGapRaw.value = mockInfoGap
   }
 }
 const defaultInfoGapBgs = [
@@ -2232,9 +2254,12 @@ async function loadHotTool() {
     })
     if (res && res.data && res.data.length > 0) {
       hotToolRaw.value = res.data
+    } else {
+      hotToolRaw.value = mockTools
     }
   } catch (e) {
     console.warn('实用工具接口请求失败', e)
+    hotToolRaw.value = mockTools
   }
 }
 const defaultToolBgs = [
@@ -2263,9 +2288,12 @@ async function loadHotFeedback() {
     })
     if (res && res.data && res.data.length > 0) {
       hotFeedbackRaw.value = res.data
+    } else {
+      hotFeedbackRaw.value = mockFeedback
     }
   } catch (e) {
     console.warn('用户反馈接口请求失败', e)
+    hotFeedbackRaw.value = mockFeedback
   }
 }
 const defaultFeedbackBgs = [
@@ -2291,6 +2319,33 @@ const hotFeedback = computed(() => hotFeedbackRaw.value.map((item, index) => ({
   statusText: statusTextMap[item.status] || item.status,
   content: item.summary || item.title || '',
 })))
+
+// 热门课程 - 对应 Course: id, title, cover, price, tPrice, buyCount, viewCount, ratingScore, tags, videoCount, serviceContent, detailUrl
+const mockCourses = [
+  { id: 1, title: 'Vue3 + TypeScript 全栈实战课程', price: 19, tPrice: 199, buyCount: 12400, viewCount: 56800, ratingScore: 4.9, videoCount: 68, tags: ['Vue3', 'TypeScript'], serviceContent: '从零搭建企业级全栈项目，深入 Composition API 与类型系统', cover: null, detailUrl: '/course/detail/1' },
+  { id: 2, title: 'Java Spring Boot 3.x 微服务实战', price: 0, tPrice: 299, buyCount: 8200, viewCount: 43100, ratingScore: 4.8, videoCount: 92, tags: ['Java', 'Spring Boot'], serviceContent: '微服务架构设计、注册中心、链路追踪全覆盖', cover: null, detailUrl: '/course/detail/2' },
+  { id: 3, title: 'Python 数据分析与机器学习', price: 29, tPrice: 259, buyCount: 9600, viewCount: 37200, ratingScore: 4.7, videoCount: 55, tags: ['Python', 'AI'], serviceContent: 'Pandas / Sklearn / Matplotlib 实战，带你入门 AI 开发', cover: null, detailUrl: '/course/detail/3' },
+  { id: 4, title: 'Docker + Kubernetes 云原生实践', price: 39, tPrice: 299, buyCount: 5600, viewCount: 28900, ratingScore: 4.8, videoCount: 74, tags: ['Docker', 'K8s'], serviceContent: '容器化部署、服务编排、CI/CD 流水线一站式掌握', cover: null, detailUrl: '/course/detail/4' },
+  { id: 5, title: 'React 18 企业级项目全解析', price: 24, tPrice: 249, buyCount: 7800, viewCount: 31500, ratingScore: 4.7, videoCount: 61, tags: ['React', 'Next.js'], serviceContent: '新并发特性、Hooks 最佳实践、Next.js SSR 全流程', cover: null, detailUrl: '/course/detail/5' },
+]
+
+// 精选电子书 - 对应 Book: id, title, description, cover, price, tags, subCount, chapterCount, level, hotScore, detailUrl
+const mockBooks = [
+  { id: 1, title: '前端工程化实践手册', description: 'Webpack / Vite / CI/CD 全链路工程化指南，适合有一定前端基础的开发者', price: 0, tags: ['前端', '工程化'], subCount: 4200, chapterCount: 18, level: 2, hotScore: 9.2, cover: null, detailUrl: '/book/detail/1' },
+  { id: 2, title: 'Java 并发编程深度解析', description: '线程池、锁机制、AQS 源码级拆解，彻底搞懂 JVM 并发模型', price: 18, tags: ['Java', '并发'], subCount: 3100, chapterCount: 22, level: 3, hotScore: 9.5, cover: null, detailUrl: '/book/detail/2' },
+  { id: 3, title: 'MySQL 高性能优化实战', description: '索引原理、执行计划分析、分库分表，带你写出真正快的 SQL', price: 9, tags: ['MySQL', '数据库'], subCount: 5600, chapterCount: 15, level: 2, hotScore: 9.3, cover: null, detailUrl: '/book/detail/3' },
+  { id: 4, title: 'Python 爬虫从入门到精通', description: 'Requests / Scrapy / Playwright 主流框架实战，附反爬攻防策略', price: 0, tags: ['Python', '爬虫'], subCount: 6800, chapterCount: 20, level: 1, hotScore: 9.1, cover: null, detailUrl: '/book/detail/4' },
+  { id: 5, title: 'AI 大模型应用开发指南', description: 'LangChain / RAG / Fine-tuning 完整实战，打造你自己的 AI 应用', price: 29, tags: ['AI', 'LLM'], subCount: 3900, chapterCount: 16, level: 3, hotScore: 9.6, cover: null, detailUrl: '/book/detail/5' },
+]
+
+// 在线考试 - 对应 Exam: id, title, description, cover, tags, questionCount, expire, passScore, collectCount, hotScore, detailUrl
+const mockExams = [
+  { id: 1, title: '前端面试题精选 500 道', description: 'HTML / CSS / JS / Vue / React 高频面试题全覆盖，含详细解析', tags: ['前端', '面试'], questionCount: 500, expire: 120, passScore: 60, collectCount: 3200, hotScore: 9.4, cover: null, detailUrl: '/paper_test/1' },
+  { id: 2, title: 'Java 后端面试宝典', description: 'JVM / 集合 / 并发 / Spring / 数据库，系统梳理面试知识点', tags: ['Java', '面试'], questionCount: 680, expire: 150, passScore: 60, collectCount: 4100, hotScore: 9.6, cover: null, detailUrl: '/paper_test/2' },
+  { id: 3, title: 'MySQL 数据库考题库', description: '涵盖 SQL 基础、索引优化、事务隔离等核心知识点', tags: ['MySQL', '数据库'], questionCount: 320, expire: 90, passScore: 70, collectCount: 2100, hotScore: 9.2, cover: null, detailUrl: '/paper_test/3' },
+  { id: 4, title: 'Linux 运维认证题库', description: '命令行、Shell 脚本、网络配置、进程管理全面考察', tags: ['Linux', '运维'], questionCount: 420, expire: 100, passScore: 65, collectCount: 1800, hotScore: 9.0, cover: null, detailUrl: '/paper_test/4' },
+  { id: 5, title: 'Python 编程基础测验', description: '语法基础、数据结构、函数与模块，适合入门自测', tags: ['Python', '基础'], questionCount: 280, expire: 60, passScore: 75, collectCount: 2800, hotScore: 9.1, cover: null, detailUrl: '/paper_test/5' },
+]
 
 // 答疑 - 对应 Question: id, userId, content, status, viewCount, followCount
 const mockQnA = [
@@ -3474,7 +3529,7 @@ const features = [
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  height: 220px;
+  height: 240px;
   display: flex;
   flex-direction: column;
 }
@@ -3601,7 +3656,13 @@ const features = [
   align-items: center;
   justify-content: space-between;
   margin-top: auto;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.course-views-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
 }
 
 .course-tag {
@@ -6698,7 +6759,7 @@ const features = [
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  height: 220px;
+  height: 250px;
   overflow: hidden;
   padding: 14px;
   gap: 0;
@@ -6781,7 +6842,7 @@ const features = [
   font-size: 11px;
   color: #6b7280;
   margin-top: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 .fb-meta-user {
   color: #374151;
@@ -6792,17 +6853,18 @@ const features = [
 }
 .fb-card-stats {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
   color: #6b7280;
 }
 .fb-stat-item {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   background: #f9fafb;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
 }
 
 /* 在线考试 - 卡片样式（同电子书结构） */
