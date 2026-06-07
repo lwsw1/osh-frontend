@@ -21,10 +21,10 @@
         </n-radio-group>
       </n-form-item>
 
-      <n-form-item label="资源类型">
+      <n-form-item label="资源类型" required>
         <n-select
           v-model:value="formValue.resourceType"
-          placeholder="请选择资源类型（可不选）"
+          placeholder="请选择资源类型"
           :options="resourceTypeOptions"
           clearable
           :disabled="lockResource"
@@ -34,7 +34,7 @@
       <n-form-item label="资源编号" v-if="formValue.resourceType">
         <n-input-number
           v-model:value="formValue.resourceNo"
-          placeholder="请输入资源编号"
+          placeholder="请输入资源编号（选填）"
           :min="1"
           style="width: 100%"
           :disabled="lockResource"
@@ -107,6 +107,15 @@
       </n-space>
     </template>
   </n-modal>
+
+  <n-modal
+    v-model:show="showAuditTip"
+    preset="dialog"
+    type="success"
+    title="新增成功"
+    content="新增成功，请等待审核"
+    positive-text="知道了"
+  />
 </template>
 
 <script setup>
@@ -141,6 +150,7 @@ const emit = defineEmits(['update:show', 'success']);
 const { message } = createDiscreteApi(['message']);
 
 const loading = ref(false);
+const showAuditTip = ref(false);
 const suggestTags = ref([]);
 const tagsLoading = ref(false);
 
@@ -165,7 +175,7 @@ const resourceTypeOptions = [
 
 // 表单验证
 const canSubmit = computed(() => {
-  return formValue.content.trim().length >= 10;
+  return !!formValue.resourceType && formValue.content.trim().length >= 10;
 });
 
 const contentLength = computed(() => formValue.content.trim().length)
@@ -267,8 +277,8 @@ async function handlePublish() {
     message.warning('问题描述至少需要10个字符');
     return;
   }
-  if (formValue.resourceType && !formValue.resourceNo) {
-    message.warning('请输入资源编号');
+  if (!formValue.resourceType) {
+    message.warning('请选择资源类型');
     return;
   }
 
@@ -277,7 +287,7 @@ async function handlePublish() {
     // 构建请求数据
     const requestData = {
       content: formValue.content.trim(),
-      resourceType: formValue.resourceType || '',
+      resourceType: formValue.resourceType,
       isPaidOnly: String(formValue.isPaidOnly),
     };
 
@@ -299,9 +309,9 @@ async function handlePublish() {
     console.log('创建问题响应:', createRes);
     
     if (createRes?.code === 200) {
-      message.success('🎉 问题创建成功！');
       emit('update:show', false);
       emit('success');
+      showAuditTip.value = true;
       setTimeout(resetForm, 300);
     } else {
       message.error(createRes?.msg || '创建失败，请重试');

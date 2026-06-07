@@ -8,6 +8,7 @@
       </div>
 
       <QuestionAnswerList
+        :key="listKey"
         @to-detail="handleToDetail"
         @open-create="showCreate = true"
       />
@@ -26,14 +27,15 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const showCreate = ref(false);
+const listKey = ref(0);
 
 function handleToDetail(id) {
   router.push(`/question_answer/detail/${id}`);
 }
 
 function handleCreateSuccess() {
-  // 刷新列表
-  router.go(0);
+  // 刷新列表，但不要整页 reload，避免吞掉“等待审核”提示弹框。
+  listKey.value += 1;
 }
 </script>
 
