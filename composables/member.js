@@ -8,6 +8,10 @@ function memberHeaders() {
   return headers
 }
 
+function memberErrorMessage(err, fallback = '请求失败') {
+  return err?.data?.msg || err?.data?.message || err?.response?._data?.msg || err?.response?._data?.message || err?.message || fallback
+}
+
 function unwrapMemberResponse(res) {
   if (res?.code !== undefined && res.code !== 200) {
     throw new Error(res.msg || res.data || '请求失败')
@@ -32,13 +36,17 @@ export async function apiGetMemberPlans() {
 }
 
 export async function apiCreateMemberCheckout(body) {
-  const res = await $fetch('/user/member/checkout', {
-    baseURL: fetchConfig.baseURL,
-    method: 'POST',
-    headers: memberHeaders(),
-    body,
-  })
-  return unwrapMemberResponse(res)
+  try {
+    const res = await $fetch('/user/member/checkout', {
+      baseURL: fetchConfig.baseURL,
+      method: 'POST',
+      headers: memberHeaders(),
+      body,
+    })
+    return unwrapMemberResponse(res)
+  } catch (err) {
+    throw new Error(memberErrorMessage(err, '创建支付订单失败'))
+  }
 }
 
 export async function apiGetMemberOrders() {
