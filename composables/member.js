@@ -58,7 +58,7 @@ export async function apiGetMemberOrders() {
 }
 
 export async function apiGetMemberPayStatus(orderNo) {
-  const res = await $fetch('/pay/status', {
+  const res = await $fetch('/user/member/pay-status', {
     baseURL: fetchConfig.baseURL,
     headers: memberHeaders(),
     query: { orderNo },

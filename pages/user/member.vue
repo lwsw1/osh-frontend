@@ -343,6 +343,7 @@ const text = {
   yearPay: '年付',
   monthPay: '月付',
   paidSuccess: '支付成功，会员权益已发放',
+  granting: '支付成功，会员权益发放中，请稍后刷新',
   loadingFailed: '会员中心加载失败',
   createOrderFailed: '创建支付订单失败',
   orderCreateFailed: '订单创建失败',
@@ -743,7 +744,7 @@ async function checkPayStatusSilently() {
   if (!pendingOrderNo.value) return
   try {
     const status = await apiGetMemberPayStatus(pendingOrderNo.value)
-    if (isPaid(status)) await handlePaidSuccess()
+    if (isGranted(status)) await handlePaidSuccess()
   } catch (err) {}
 }
 
@@ -752,8 +753,11 @@ async function checkPayStatus() {
   checkingPay.value = true
   try {
     const status = await apiGetMemberPayStatus(pendingOrderNo.value)
-    if (isPaid(status)) {
+    if (isGranted(status)) {
       await handlePaidSuccess()
+    } else if (isPaid(status)) {
+      message.info(text.granting)
+      await loadMemberCenter()
     } else {
       message.info(text.notPaidYet)
     }
@@ -786,7 +790,11 @@ async function cancelPayment() {
 }
 
 function isPaid(status) {
-  return status?.payStatus === true || status?.payStatus === 1 || status?.paymentStatus === 1 || status?.orderStatus === 1
+  return status?.paid === true
+}
+
+function isGranted(status) {
+  return status?.granted === true
 }
 
 function memberTypeLabel(type) {
