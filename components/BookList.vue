@@ -1,9 +1,8 @@
 <template>
-  <article class="book-card" @click="open">
+  <article class="book-card" role="link" tabindex="0" @click="open" @keyup.enter="open">
     <div class="cover-shell">
-      <UiImage :src="item.cover || defaultCover" class="book-cover" />
-      <div class="cover-glow"></div>
-      <span class="cover-level">Lv.{{ item.level || 1 }}</span>
+      <UiImage :src="item.cover || defaultCover" object-fit="contain" class="book-cover" />
+      <span class="cover-level">{{ bookLevelLabel(item.level) }}</span>
       <span v-if="Number(item.price || 0) === 0" class="cover-badge free">免费</span>
       <span v-else class="cover-badge paid">付费</span>
     </div>
@@ -20,8 +19,10 @@
           :class="{ active: favoriteActive }"
           @click.stop="toggleFavorite"
           :disabled="favoriteLoading"
+          aria-label="收藏电子书"
+          :title="favoriteActive ? '取消收藏' : '收藏'"
         >
-          {{ favoriteActive ? '已收藏' : '收藏' }}
+          <n-icon :component="favoriteActive ? Heart : HeartOutline" />
         </button>
       </div>
 
@@ -31,16 +32,19 @@
 
       <div class="stats-row">
         <div class="stat-box">
+          <n-icon :component="PeopleOutline" />
           <span>购买人数</span>
           <strong>{{ item.purchase_count || item.purchaseCount || item.sub_count || 0 }}</strong>
         </div>
         <div class="stat-box">
+          <n-icon :component="ListOutline" />
           <span>章节数</span>
-          <strong>{{ item.chapterCount || '--' }}</strong>
+          <strong>{{ item.chapterCount ?? 0 }}</strong>
         </div>
         <div class="stat-box">
+          <n-icon :component="ShieldCheckmarkOutline" />
           <span>权限等级</span>
-          <strong>{{ item.level || 1 }}</strong>
+          <strong>{{ bookLevelLabel(item.level) }}</strong>
         </div>
       </div>
 
@@ -49,7 +53,10 @@
           <span class="price">{{ Number(item.price || 0) === 0 ? '免费' : `¥${item.price}` }}</span>
           <span v-if="item.t_price || item.tPrice" class="origin">¥{{ item.t_price || item.tPrice }}</span>
         </div>
-        <button class="enter-btn">进入详情</button>
+        <button class="enter-btn">
+          <span>查看详情</span>
+          <n-icon :component="ArrowForwardOutline" />
+        </button>
       </div>
     </div>
   </article>
@@ -57,9 +64,18 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { createDiscreteApi } from 'naive-ui'
+import { createDiscreteApi, NIcon } from 'naive-ui'
+import {
+  ArrowForwardOutline,
+  Heart,
+  HeartOutline,
+  ListOutline,
+  PeopleOutline,
+  ShieldCheckmarkOutline,
+} from '@vicons/ionicons5'
 import { useHasAuth } from '~/composables/useAuth'
 import { apiFavoriteBook } from '~/composables/Api/Book/book'
+import { bookLevelLabel } from '~/composables/bookLevels'
 
 const props = defineProps({
   item: {
@@ -80,7 +96,7 @@ const favoriteActive = ref(false)
 watch(
   () => props.item,
   (value) => {
-    favoriteActive.value = Boolean(value?.favorited || value?.isFavorite || value?.collectionFlag === 1)
+    favoriteActive.value = Number(value?.favorited ?? value?.collectionFlag ?? 0) === 1 || value?.isFavorite === true
   },
   { immediate: true, deep: true }
 )
@@ -123,100 +139,117 @@ function toggleFavorite() {
 .book-card {
   position: relative;
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  gap: 18px;
-  padding: 18px;
-  border-radius: 28px;
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 250, 255, 0.94) 100%);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  grid-template-columns: 148px minmax(0, 1fr);
+  min-height: 224px;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.05);
   cursor: pointer;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.book-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.14);
-  border-color: rgba(255, 107, 107, 0.2);
+.book-card:hover,
+.book-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: #c7d2fe;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  outline: none;
 }
 
 .cover-shell {
   position: relative;
-  min-height: 220px;
-  border-radius: 24px;
+  height: 192px;
+  min-height: 192px;
+  border-radius: 6px;
   overflow: hidden;
-  background: linear-gradient(160deg, #09203f 0%, #537895 100%);
+  background: #f1f5f9;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 .book-cover {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-}
-
-.cover-glow {
-  position: absolute;
-  inset: auto -20% -28% 15%;
-  height: 90px;
-  background: radial-gradient(circle, rgba(255, 186, 104, 0.8), transparent 65%);
-  filter: blur(18px);
+  object-fit: contain;
 }
 
 .cover-level,
 .cover-badge {
   position: absolute;
-  left: 14px;
-  padding: 8px 12px;
-  border-radius: 999px;
+  left: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
   font-size: 12px;
-  font-weight: 700;
-  backdrop-filter: blur(14px);
+  font-weight: 600;
 }
 
 .cover-level {
-  top: 14px;
+  top: 10px;
   color: #f8fafc;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .cover-badge {
-  bottom: 14px;
-  color: #10213a;
+  bottom: 10px;
 }
 
 .cover-badge.free {
-  background: rgba(187, 247, 208, 0.92);
+  background: #dcfce7;
+  color: #166534;
 }
 
 .cover-badge.paid {
-  background: rgba(254, 240, 138, 0.92);
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .card-body {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .card-top {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
+.title-block {
+  min-width: 0;
+}
+
 .title-block h3 {
   margin: 0;
-  font-size: 24px;
-  line-height: 1.25;
-  color: #10213a;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .title-block p {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: #64748b;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .favorite-btn,
@@ -226,58 +259,100 @@ function toggleFavorite() {
 }
 
 .favorite-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
   flex-shrink: 0;
-  padding: 10px 14px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.06);
-  color: #334155;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64748b;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.favorite-btn:hover {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #e11d48;
+}
+
 .favorite-btn.active {
-  background: rgba(255, 107, 107, 0.12);
-  color: #ef4444;
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #e11d48;
 }
 
 .tag-row {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
 }
 
 .tag-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(14, 165, 233, 0.1);
-  color: #0369a1;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  min-width: 0;
+  gap: 0;
+  padding: 10px 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .stat-box {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 0.92) 100%);
+  display: grid;
+  grid-template-columns: 16px auto;
+  grid-template-rows: auto auto;
+  min-width: 0;
+  flex: 1;
+  column-gap: 6px;
+  padding: 0 12px;
+  border-right: 1px solid #e2e8f0;
+  color: #94a3b8;
+}
+
+.stat-box:first-child {
+  padding-left: 0;
+}
+
+.stat-box:last-child {
+  border-right: 0;
 }
 
 .stat-box span {
-  display: block;
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
   color: #64748b;
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-box strong {
-  display: block;
-  margin-top: 8px;
-  color: #10213a;
-  font-size: 22px;
+  grid-column: 2;
+  min-width: 0;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .footer-row {
@@ -290,14 +365,19 @@ function toggleFavorite() {
 
 .price-block {
   display: flex;
+  min-width: 0;
   align-items: baseline;
   gap: 10px;
 }
 
 .price {
-  font-size: 28px;
-  font-weight: 800;
-  color: #ea580c;
+  min-width: 0;
+  overflow: hidden;
+  color: #e11d48;
+  font-size: 20px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .origin {
@@ -306,32 +386,79 @@ function toggleFavorite() {
 }
 
 .enter-btn {
-  padding: 12px 18px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #10213a 0%, #1d4ed8 100%);
-  color: #fff;
-  font-weight: 700;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 16px 30px rgba(29, 78, 216, 0.18);
+}
+
+.enter-btn:hover {
+  background: #4338ca;
 }
 
 @media (max-width: 860px) {
   .book-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: 128px minmax(0, 1fr);
   }
 
   .cover-shell {
-    min-height: 260px;
+    height: 172px;
+    min-height: 172px;
+  }
+}
+
+@media (max-width: 560px) {
+  .book-card {
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
   }
 
-  .card-top,
+  .cover-shell {
+    height: 148px;
+    min-height: 148px;
+  }
+
   .footer-row {
-    flex-direction: column;
-    align-items: stretch;
+    align-items: flex-end;
   }
 
   .stats-row {
+    display: grid;
     grid-template-columns: 1fr;
+    padding: 6px 0;
+  }
+
+  .stat-box {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    padding: 6px 0;
+    border-right: 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .stat-box:last-child {
+    border-bottom: 0;
+  }
+
+  .stat-box span {
+    grid-column: 2;
+  }
+
+  .stat-box strong {
+    grid-column: 3;
+    margin-top: 0;
+  }
+
+  .enter-btn span {
+    display: none;
   }
 }
 </style>
