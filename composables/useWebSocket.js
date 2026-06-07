@@ -14,8 +14,14 @@ export const useWsStatus      = () => useState('ws_status', () => 'disconnected'
 /** 开源项目广播公告列表（type=NEW_OPEN_PROJECT） */
 export const useProjectAnnouncements = () => useState('ws_project_announcements', () => [])
 export const useToolUserNoticeRefreshFlag = () => useState('ws_tool_user_notice_refresh', () => 0)
-/** 首页公告刷新标记（type=HOMEPAGE_ANNOUNCEMENT_REFRESH），值变化时前端重新拉取公告 */
-export const useHomepageAnnouncementRefreshFlag = () => useState('ws_homepage_announcement_refresh', () => 0)
+
+// 广播型消息：只驱动页面局部刷新/公告展示，不进入每个用户的小铃铛通知列表
+const BROADCAST_TYPES = new Set([
+  'NEW_OPEN_PROJECT',
+  'TOOL_USER_NOTICE_REFRESH',
+  'SECKILL_NOTICE_UPDATE',
+  'SECKILL_DYNAMIC_NEW',
+])
 
 // ─── WebSocket 单例（非响应式）────────────────────────────────────────────────
 let _ws = null
@@ -48,7 +54,6 @@ export function useWebSocket() {
   const wsStatus      = useWsStatus()
   const projectAnnouncements = useProjectAnnouncements()
   const toolUserNoticeRefreshFlag = useToolUserNoticeRefreshFlag()
-  const homepageAnnouncementRefreshFlag = useHomepageAnnouncementRefreshFlag()
 
   function connect() {
     if (!process.client) return
@@ -87,7 +92,7 @@ export function useWebSocket() {
         }
 
         // 广播类型消息：不推送到小铃铛通知列表
-        const BROADCAST_TYPES = ['NEW_OPEN_PROJECT', 'TOOL_USER_NOTICE_REFRESH', 'HOMEPAGE_ANNOUNCEMENT_REFRESH']
+        const BROADCAST_TYPES = ['NEW_OPEN_PROJECT', 'TOOL_USER_NOTICE_REFRESH']
         const isBroadcast = BROADCAST_TYPES.includes(msg.type)
 
         if (!isBroadcast) {
@@ -116,11 +121,6 @@ export function useWebSocket() {
               console.error('[WS] 工具公告提示派发失败', err)
             }
           }
-        }
-
-        // 首页公告刷新广播：更新标记，首页 watch 到后重新拉取公告数据
-        if (msg.type === 'HOMEPAGE_ANNOUNCEMENT_REFRESH') {
-          homepageAnnouncementRefreshFlag.value = Date.now()
         }
       } catch (e) {
         console.error('[WS] 消息解析失败', e)
@@ -172,7 +172,7 @@ export function useWebSocket() {
     unreadCount.value = 0
   }
 
-  return { notifications, unreadCount, wsStatus, connect, disconnect, markAllRead, markRead, clearAll, projectAnnouncements, toolUserNoticeRefreshFlag, homepageAnnouncementRefreshFlag }
+  return { notifications, unreadCount, wsStatus, connect, disconnect, markAllRead, markRead, clearAll, projectAnnouncements, toolUserNoticeRefreshFlag }
 }
 
 // ─── 心跳 ─────────────────────────────────────────────────────────────────────

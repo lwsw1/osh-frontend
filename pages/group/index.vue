@@ -1,5 +1,11 @@
 <template>
     <div class="group-activity-list">
+        <!-- 面包屑 -->
+        <div class="breadcrumb">
+          <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+          <span class="bc-sep">›</span>
+          <span class="bc-current">👥 拼团活动</span>
+        </div>
         <n-card class="filter-card">
             <div class="filter-bar">
                 <div class="flex items-center gap-4">
@@ -679,6 +685,19 @@ async function handleAddUser() {
 .group-activity-list {
     padding: 1rem 0;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 12px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 .filter-card {
     margin-bottom: 1.5rem;

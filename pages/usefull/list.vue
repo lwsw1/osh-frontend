@@ -1,5 +1,63 @@
 <template>
   <div class="website-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">🌐 实用网站</span>
+    </div>
+    <!-- 公告 & 动态滚动栏 -->
+    <div class="notice-wrap">
+      <!-- 公告行：新添加的实用网站 -->
+      <div class="notice-bar notice-bar-yellow">
+        <div class="notice-label notice-label-yellow">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="white" stroke-width="1.3" stroke-linejoin="round" fill="rgba(255,255,255,0.2)"/>
+          </svg>
+          <span>公告</span>
+        </div>
+        <div class="notice-scroll-wrap">
+          <div
+            class="notice-scroll-track"
+            :style="{ animationDuration: noticeDuration + 's', animationPlayState: noticePaused ? 'paused' : 'running' }"
+            @mouseenter="noticePaused = true"
+            @mouseleave="noticePaused = false"
+          >
+            <span class="notice-item" v-for="(item, i) in [...noticeItems, ...noticeItems]" :key="'n' + i">
+              <span class="notice-dot" :style="{ background: item.color || '#f59e0b' }"></span>
+              {{ item.icon || '🌐' }} {{ item.title }}
+              <span class="notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 动态行：用户评价动态 -->
+      <div class="notice-bar notice-bar-blue">
+        <div class="notice-label notice-label-blue">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="12" height="2" rx="1" fill="white"/>
+            <rect x="2" y="7" width="9" height="2" rx="1" fill="white"/>
+            <rect x="2" y="11" width="11" height="2" rx="1" fill="white"/>
+          </svg>
+          <span>动态</span>
+        </div>
+        <div class="notice-scroll-wrap">
+          <div
+            class="notice-scroll-track"
+            :style="{ animationDuration: dynamicDuration + 's', animationPlayState: dynamicPaused ? 'paused' : 'running' }"
+            @mouseenter="dynamicPaused = true"
+            @mouseleave="dynamicPaused = false"
+          >
+            <span class="notice-item" v-for="(item, i) in [...dynamicItems, ...dynamicItems]" :key="'d' + i">
+              <span class="notice-dot" :style="{ background: item.color || '#3b82f6' }"></span>
+              {{ item.icon || '👍' }} {{ item.title }}
+              <span class="notice-sep">｜</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- 筛选栏 -->
     <UseFullFilter
       v-model:modelValue="queryParams"
@@ -69,7 +127,7 @@
                   <span class="meta-item">{{ item.clickCount || 0 }} 访问</span>
                   <span class="meta-item">{{ item.collectionCount || 0 }} 收藏</span>
                   <span v-if="item.ratingScore" class="meta-item score">
-                    ⭐ {{ Number(item.ratingScore).toFixed(1) }}
+                    推荐指数 {{ Number(item.ratingScore).toFixed(1) }}
                   </span>
                 </div>
 
@@ -103,7 +161,7 @@
                       class="action-btn favorite"
                       :class="{ active: item.isFavorite }"
                       @click.stop="handleFavorite(item)"
-                    >{{ item.isFavorite ? '已收藏' : '+ 收藏' }}</button>
+                    >{{ item.isFavorite ? '★ 已收藏' : '☆ 收藏' }}</button>
                   </ClientOnly>
 
                   <!-- 访问按钮 -->
@@ -147,6 +205,8 @@ import {
   apiWebsiteFavorite,
   apiWebsiteCancelFavorite,
   apiWebsiteRating,
+  apiWebsiteNotices,
+  apiWebsiteDynamics,
 } from '~/composables/Api/UseFull/usefull'
 
 const { permissionList } = usePermission()
@@ -154,6 +214,32 @@ const { permissionList } = usePermission()
 const canSubmit   = computed(() => permissionList.value.includes('website:submit'))
 const canFavorite = computed(() => permissionList.value.includes('website:favorite'))
 const canRating   = computed(() => permissionList.value.includes('website:rating:submit'))
+
+// ── 公告 & 动态（调真实接口）──
+const noticeItems = ref([])
+const dynamicItems = ref([])
+const noticePaused  = ref(false)
+const dynamicPaused = ref(false)
+const noticeDuration  = computed(() => Math.max(20, noticeItems.value.length * 6))
+const dynamicDuration = computed(() => Math.max(25, dynamicItems.value.length * 5))
+
+const loadNotices = async () => {
+  try {
+    const res = await apiWebsiteNotices(10)
+    if (res?.code === 200) noticeItems.value = res.data || []
+  } catch (e) {
+    console.error('加载公告失败', e)
+  }
+}
+
+const loadDynamics = async () => {
+  try {
+    const res = await apiWebsiteDynamics(10)
+    if (res?.code === 200) dynamicItems.value = res.data || []
+  } catch (e) {
+    console.error('加载动态失败', e)
+  }
+}
 
 const queryParams = reactive({
   pageNum: 1,
@@ -372,12 +458,122 @@ const handleRating = async (item, ratingType) => {
 const goCreate = () => navigateTo('/usefull/create')
 
 onMounted(() => {
+  loadNotices()
+  loadDynamics()
   loadTags()
   loadList()
 })
 </script>
 
 <style scoped>
+/* ── 公告 & 动态滚动栏 ── */
+.notice-wrap {
+  margin-bottom: 10px;
+}
+.notice-bar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  box-shadow: 0 1px 4px rgba(251,191,36,0.12);
+  animation: notice-in 0.5s ease both;
+}
+.notice-bar-yellow {
+  background: linear-gradient(90deg, #fef9c3 0%, #fef3c7 40%, #fce7f3 100%);
+}
+.notice-bar-blue {
+  background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 40%, #ede9fe 100%);
+  box-shadow: 0 1px 4px rgba(59,130,246,0.08);
+  margin-bottom: 0;
+}
+@keyframes notice-in {
+  from { opacity: 0; transform: translateY(-100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.notice-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 100%;
+  width: 64px;
+  flex-shrink: 0;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  margin-right: 14px;
+}
+.notice-label-yellow {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  box-shadow: 2px 0 12px rgba(249,115,22,0.35);
+  animation: pulse-yellow 3s ease-in-out infinite;
+}
+.notice-label-blue {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  box-shadow: 2px 0 12px rgba(99,102,241,0.35);
+  animation: pulse-blue 3s ease-in-out infinite;
+}
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 2px 0 12px rgba(249,115,22,0.35); }
+  50%       { box-shadow: 2px 0 20px rgba(249,115,22,0.6); }
+}
+@keyframes pulse-blue {
+  0%, 100% { box-shadow: 2px 0 12px rgba(99,102,241,0.35); }
+  50%       { box-shadow: 2px 0 20px rgba(99,102,241,0.6); }
+}
+.notice-scroll-wrap {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.notice-scroll-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: notice-scroll linear infinite;
+}
+@keyframes notice-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.notice-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+  padding-right: 6px;
+  cursor: default;
+}
+.notice-item:hover { color: #d97706; }
+.notice-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: dot-blink 2s ease-in-out infinite;
+}
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+.notice-sep {
+  color: #d97706;
+  margin: 0 16px 0 8px;
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+/* ── 页面容器 ── */
 .website-container {
   width: 100%;
   padding: 20px;
@@ -385,6 +581,19 @@ onMounted(() => {
   background: #f5f7fa;
   min-height: calc(100vh - 40px);
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 12px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 /* 内容区 */
 .website-content {

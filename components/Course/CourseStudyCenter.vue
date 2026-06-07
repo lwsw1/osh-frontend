@@ -151,7 +151,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiGetMaterialUrl } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiGetMaterialUrl, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 import { renderCourseDoc, extractCourseDocImageSrcs, replaceCourseDocImageSrc } from '~/composables/useCourseDoc';
 
@@ -166,7 +166,17 @@ const accessLevel = computed(() => {
   return level;
 });
 
-const route = useRoute();
+function mapOutlineSection(section, chapterId) {
+  return {
+    ...section,
+    parentId: section.parentId || section.chapterId || chapterId,
+    freeFlag: normalizeSectionFreeFlag(section.freeFlag),
+  };
+}
+
+function isSectionFreePreview(section) {
+  return normalizeSectionFreeFlag(section?.freeFlag) === 1;
+}
 const router = useRouter();
 const courseId = computed(() => props.data?.id || route.params.id);
 
@@ -290,10 +300,7 @@ async function loadOutline() {
     if (res?.code === 200) {
       outline.value = (res.data || []).map(ch => ({
         ...ch,
-        children: (ch.children || ch.sections || []).map(s => ({
-          ...s,
-          parentId: s.parentId || s.chapterId || ch.id,
-        })),
+        children: (ch.children || ch.sections || []).map(s => mapOutlineSection(s, ch.id)),
       }));
 
       // 优先：URL 传入的 sectionId 定位到指定小节
@@ -312,7 +319,7 @@ async function loadOutline() {
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
-            if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
+            if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
               selectSection(s);
               return;
             }
@@ -322,7 +329,7 @@ async function loadOutline() {
       // 最后：选第一个免费小节（TRIAL 模式兜底）
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
-          if (accessLevel.value === 'FULL' || s.freeFlag === 1) {
+          if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
             selectSection(s);
             return;
           }
@@ -335,7 +342,7 @@ async function loadOutline() {
 
 function selectSection(section) {
   // TRIAL 模式下，非免费章节拦截
-  if (accessLevel.value === 'TRIAL' && section.freeFlag !== 1) {
+  if (accessLevel.value === 'TRIAL' && !isSectionFreePreview(section)) {
     showLockedTip();
     return;
   }
@@ -361,6 +368,8 @@ async function refreshSectionDocContent(sectionId) {
       await renderAndRefreshDoc(latest);
       const sec = currentSection.value || {};
       currentSection.value = { ...sec, textContent: latest };
+    } else if (res?.code !== 200 && accessLevel.value === 'TRIAL') {
+      showLockedTip();
     }
   } catch (err) {
     console.warn('[CourseStudyCenter] refreshSectionDocContent failed', err);

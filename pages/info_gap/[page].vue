@@ -1,5 +1,11 @@
 <template>
   <div class="info-gap-container">
+    <!-- 面包屑 -->
+    <div class="breadcrumb">
+      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">💡 信息差</span>
+    </div>
     <n-alert title="平台风险公告" type="warning" class="risk-alert">
       不良信息、恶法内容将被加入页面名单，严重者封封！警告三次将永久封禁账号！
     </n-alert>
@@ -60,6 +66,18 @@
             </template>
             发布我的信息差
           </n-button>
+          <n-select
+            :value="activeSearchCategory || null"
+            style="width: 140px"
+            placeholder="选择类别"
+            clearable
+            :options="[
+              { label: '技术', value: '技术' },
+              { label: '政策', value: '政策' },
+              { label: '搞钱', value: '搞钱' },
+            ]"
+            @update:value="handleCategorySearch"
+          />
           <n-input-group style="width: 300px">
             <n-input
               v-model:value="queryParams.title"
@@ -603,6 +621,13 @@ const selectedTagValuesForSelect = computed({
 });
 
 const normalizeSearchKeyword = (value) => String(value || '').trim();
+const normalizeSearchTagId = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+    return null;
+  }
+  return text;
+};
 
 const stripInfoGapNoPrefix = (value) => {
   const text = String(value ?? '').trim();
@@ -670,7 +695,7 @@ const findCandidateTagIdByName = (label) => {
     (tag) => normalizeSearchKeyword(tag.name).toLowerCase() === normalizedLabel.toLowerCase()
   );
 
-  return matchedTag?.id ?? null;
+  return normalizeSearchTagId(matchedTag?.id);
 };
 
 const findCandidateTagByName = (label) => {
@@ -692,7 +717,7 @@ const resolveTagMeta = (item = {}, index) => {
   const matchedId = candidates.find((value) => value !== null && value !== undefined && value !== '');
 
   return label ? {
-    id: matchedId !== undefined ? Number(matchedId) : findCandidateTagIdByName(label),
+    id: matchedId !== undefined ? normalizeSearchTagId(matchedId) : findCandidateTagIdByName(label),
     label,
   } : null;
 };
@@ -707,8 +732,24 @@ const buildItemSearchTags = (item = {}) => {
 };
 
 const buildListRequestConfig = () => {
-  const title = normalizeSearchKeyword(queryParams.title);
-  const shouldUseSearch = isSearchMode.value && (!!title || activeSearchTagId.value != null);
+  const keyword = normalizeSearchKeyword(queryParams.title);
+  const shouldUseSearch = isSearchMode.value && !!keyword;
+  const shouldUseLegacyCategorySearch = !!activeSearchCategory.value;
+
+  if (shouldUseLegacyCategorySearch) {
+    return {
+      method: 'POST',
+      key: `info-gap-category-search-${queryParams.type}-p${queryParams.pageNum}-${encodeURIComponent(activeSearchCategory.value)}`,
+      url: '/info_gap/search',
+      payload: {
+        pageNum: queryParams.pageNum,
+        pageSize: queryParams.pageSize,
+        keyword: undefined,
+        tagId: null,
+        category: activeSearchCategory.value,
+      },
+    };
+  }
 
   if (!shouldUseSearch) {
     const listUrl = queryParams.type === 'myself' || queryParams.type === 'follow'
@@ -727,14 +768,12 @@ const buildListRequestConfig = () => {
 
   return {
     method: 'POST',
-    key: `info-gap-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(title || 'all')}`,
-    url: '/info_gap/search',
+    key: `info-gap-es-search-${queryParams.type}-p${queryParams.pageNum}-${activeSearchTagId.value ?? activeSearchCategory.value ?? 'keyword'}-${encodeURIComponent(keyword || 'all')}`,
+    url: '/info_gap/es/search',
     payload: {
       pageNum: queryParams.pageNum,
       pageSize: queryParams.pageSize,
-      keyword: activeSearchTagId.value != null || activeSearchCategory.value ? undefined : title,
-      tagId: activeSearchTagId.value,
-      category: activeSearchCategory.value,
+      keyword,
     },
   };
 };
@@ -1001,17 +1040,17 @@ const handleClearSearch = async () => {
 const handleTagSearch = async (tag) => {
   queryParams.title = normalizeSearchKeyword(tag?.label);
   isSearchMode.value = !!queryParams.title;
-  activeSearchTagId.value = tag?.id ?? null;
+  activeSearchTagId.value = normalizeSearchTagId(tag?.id);
   activeSearchCategory.value = '';
   queryParams.type = 'hot';
   await syncToPage(1);
 };
 
 const handleCategorySearch = async (category) => {
-  queryParams.title = normalizeSearchKeyword(category);
-  isSearchMode.value = !!queryParams.title;
+  queryParams.title = '';
+  isSearchMode.value = true;
   activeSearchTagId.value = null;
-  activeSearchCategory.value = queryParams.title;
+  activeSearchCategory.value = normalizeSearchKeyword(category);
   queryParams.type = 'hot';
   await syncToPage(1);
 };
@@ -1027,8 +1066,7 @@ const getRouteCategory = () =>
 const getRouteTagId = () => {
   const raw = route.query.tagId;
   if (raw === undefined || raw === null || raw === '') return null;
-  const parsed = Number(Array.isArray(raw) ? raw[0] : raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return normalizeSearchTagId(Array.isArray(raw) ? raw[0] : raw);
 };
 const getRoutePageNum = () => parseInt(route.params.page) || 1;
 
@@ -1039,9 +1077,9 @@ const syncToPage = async (page) => {
 
   const nextType = queryParams.type || 'hot';
   const nextTitle = queryParams.title;
-  const nextSearchMode = isSearchMode.value && !!nextTitle;
   const nextTagId = activeSearchTagId.value;
   const nextCategory = activeSearchCategory.value;
+  const nextSearchMode = isSearchMode.value && (!!nextTitle || !!nextCategory);
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
@@ -1060,8 +1098,12 @@ const syncToPage = async (page) => {
     type: nextType,
   };
 
-  if (isSearchMode.value && nextTitle) {
-    nextQuery.title = nextTitle;
+  if (isSearchMode.value && (nextTitle || nextCategory)) {
+    if (nextTitle) {
+      nextQuery.title = nextTitle;
+    } else {
+      delete nextQuery.title;
+    }
     nextQuery.search = '1';
     if (nextTagId != null) {
       nextQuery.tagId = String(nextTagId);
@@ -1098,7 +1140,7 @@ watch(
       if (getRouteSearchMode()) {
         queryParams.type = getRouteType();
         queryParams.title = getRouteTitle();
-        isSearchMode.value = !!queryParams.title;
+        isSearchMode.value = !!queryParams.title || !!getRouteCategory();
         activeSearchTagId.value = getRouteTagId();
         activeSearchCategory.value = getRouteCategory();
         loadData();
@@ -1109,7 +1151,7 @@ watch(
     queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
-    isSearchMode.value = getRouteSearchMode() && !!queryParams.title;
+    isSearchMode.value = getRouteSearchMode() && (!!queryParams.title || !!getRouteCategory());
     activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
     activeSearchCategory.value = isSearchMode.value ? getRouteCategory() : '';
     loadData();
@@ -1423,6 +1465,20 @@ useHead({ title: '信息差 - 开源助手' });
   display: flex;
   flex-direction: column;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 10px;
+  margin-top: 8px;
+}
+.bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
+.bc-item:hover { color: #18a058; }
+.bc-sep { color: #ddd; user-select: none; }
+.bc-current { color: #333; font-weight: 600; }
 
 .risk-alert {
   margin-bottom: 16px;
