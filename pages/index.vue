@@ -17,7 +17,7 @@
             @mouseenter="noticePaused = true"
             @mouseleave="noticePaused = false"
           >
-            <span class="notice-item" v-for="(n, i) in [...notices, ...notices]" :key="i">
+            <span class="notice-item" v-for="(n, i) in (noticesFromApi.length ? [...noticesFromApi, ...noticesFromApi] : [...notices, ...notices])" :key="i">
               <span class="notice-dot" :style="{ background: n.color }"></span>
               {{ n.text }}
               <span class="notice-sep">｜</span>
@@ -39,7 +39,7 @@
             @mouseenter="noticePaused2 = true"
             @mouseleave="noticePaused2 = false"
           >
-            <span class="notice-item" v-for="(n, i) in [...notices2, ...notices2]" :key="'n2-'+i">
+            <span class="notice-item" v-for="(n, i) in (dynamicsFromApi.length ? [...dynamicsFromApi, ...dynamicsFromApi] : [...notices2, ...notices2])" :key="'n2-'+i">
               <span class="notice-dot" :style="{ background: n.color }"></span>
               {{ n.text }}
               <span class="notice-sep">｜</span>
@@ -766,10 +766,10 @@
             <h2 class="section-title">拼团优惠</h2>
             <p class="section-subtitle">邀请好友一起学，享受更低价格</p>
           </div>
-          <button class="btn-more" @click="navigateTo(getNavPath('group', '/list/group/1'))">查看全部 →</button>
+          <NuxtLink class="btn-more" to="/group">查看全部 →</NuxtLink>
         </div>
         <div class="module-grid module-grid-5">
-          <div v-for="(item, i) in (hotGroup.length ? hotGroup : mockGroup)" :key="i" class="group-card" @click="navigateTo(item.detailUrl || '/list/group/1')">
+          <div v-for="(item, i) in (hotGroup.length ? hotGroup : mockGroup)" :key="i" class="group-card" @click="navigateTo(item.detailUrl || '/group')">
             <!-- 顶部：标题 + 人数徽章 -->
             <div class="group-card-header">
               <h4 class="group-card-title">{{ item.title }}</h4>
@@ -808,7 +808,7 @@
               <span class="group-card-progress-text">{{ item.currentNum || 0 }}/{{ item.groupCount }}</span>
             </div>
             <!-- 按钮 -->
-            <button class="group-card-btn" @click.stop="navigateTo(item.detailUrl || '/list/group/1')">立即参团</button>
+            <button class="group-card-btn" @click.stop="navigateTo(item.detailUrl || '/group')">立即参团</button>
           </div>
         </div>
       </div>
@@ -964,21 +964,32 @@
         </div>
         <div class="module-grid module-grid-5">
           <div v-for="(item, i) in (hotFeedback.length ? hotFeedback : mockFeedback)" :key="i" class="feedback-card-home" @click="navigateTo(item.detailUrl || '/feedback/list')">
-            <div class="feedback-card-cover" :style="{ background: item.bg }">
-              <span class="feedback-category-badge">{{ item.category }}</span>
-              <span class="feedback-status-badge" :class="'fb-status-' + item.status">{{ item.statusText }}</span>
+            <!-- 顶部：分类 + 状态 -->
+            <div class="fb-card-top">
+              <span class="fb-category-label">
+                <span class="fb-category-icon">{{ item.categoryIcon || '📝' }}</span>
+                {{ item.category || '其它' }}
+              </span>
+              <span class="fb-status-badge" :class="'fb-s-' + item.status">{{ item.statusText }}</span>
             </div>
-            <div class="feedback-card-body">
-              <h4 class="feedback-card-title">{{ item.title }}</h4>
-              <div class="feedback-card-tags" v-if="item.tags">
-                <span class="feedback-tag-item" v-for="t in item.tags" :key="t">{{ t }}</span>
-              </div>
-              <p class="feedback-card-content">{{ item.content }}</p>
-              <div class="feedback-card-footer">
-                <span class="feedback-card-user">👤 {{ item.user }}</span>
-                <span class="feedback-card-stats">👍{{ item.likeCount }} 💬{{ item.commentCount }}</span>
-                <span class="feedback-card-time">{{ item.time }}</span>
-              </div>
+            <!-- 标题 -->
+            <h4 class="fb-card-title">{{ item.title }}</h4>
+            <!-- 标签 -->
+            <div class="fb-tag-row" v-if="item.tagName">
+              <span class="fb-tag-chip">{{ item.tagName }}</span>
+            </div>
+            <!-- 内容摘要 -->
+            <p class="fb-card-summary">{{ item.summary || item.content }}</p>
+            <!-- 底部：用户 + 时间 -->
+            <div class="fb-card-meta">
+              <span class="fb-meta-user">👤 {{ item.username || item.user || '用户' }}</span>
+              <span class="fb-meta-time">{{ item.createTime || item.time }}</span>
+            </div>
+            <!-- 统计数据 -->
+            <div class="fb-card-stats">
+              <span class="fb-stat-item">🔥 {{ item.likeCount || 0 }}</span>
+              <span class="fb-stat-item">⭐ {{ item.collectCount || 0 }}</span>
+              <span class="fb-stat-item">📖 {{ item.viewCount || 0 }}</span>
             </div>
           </div>
         </div>
@@ -1087,7 +1098,7 @@ const defaultCarouselItems = [
     title: '拼团优惠学习',
     subtitle: '邀请好友一起学，享受更低价格',
     btnText: '发起拼团',
-    path: '/list/group/1',
+    path: '/group',
     feature1: '邀友同学',
     feature1Icon: '👋',
     feature2: '最高7折',
@@ -1347,10 +1358,27 @@ function saveCardDetail() {
     editingCarouselItems.value = [...visibleItems, ...hidden]
     pendingNewItem.value = null
   } else {
-    // 编辑已有卡片，根据 sort 值重新排序
+    // 编辑已有卡片：按新 sort 值插入到正确位置，重新分配连续 sort 值
     const visible = editingCarouselItems.value.filter(item => item.isVisible !== false)
     const hidden = editingCarouselItems.value.filter(item => item.isVisible === false)
-    visible.sort((a, b) => (a.sort || 999) - (b.sort || 999))
+
+    // 目标 sort 值，clamp 到合法范围
+    const targetSort = Math.max(1, Math.min(editingCard.value.sort || 1, visible.length))
+    editingCard.value.sort = targetSort
+
+    // sort 相同时被编辑卡片优先排前面，其他的后移
+    const editedId = editingCard.value.id
+    visible.sort((a, b) => {
+      if (a.sort === b.sort) {
+        if (a.id === editedId) return -1
+        if (b.id === editedId) return 1
+      }
+      return (a.sort || 999) - (b.sort || 999)
+    })
+
+    // 重新分配连续 sort 值 1,2,3...
+    visible.forEach((item, i) => { item.sort = i + 1 })
+
     editingCarouselItems.value = [...visible, ...hidden]
   }
   showCardDetail.value = false
@@ -1718,6 +1746,7 @@ function getNavPath(key, fallback) {
 onMounted(() => {
   loadCarouselData()
   loadNavModules()
+  loadHomepageNotices()
   loadHotCourses()
   loadHotBooks()
   loadHotExams()
@@ -1936,7 +1965,7 @@ const hotBooks = computed(() => hotBooksRaw.value.map((book, index) => {
     chapterCount: book.chapterCount || 0,
     level: book.level || 1,
     hotScore: book.hotScore || 0,
-    detailUrl: `/book/${book.id}`,
+    detailUrl: book.detailUrl || `/book/${book.id}`,
   }
 }))
 
@@ -2084,12 +2113,15 @@ const hotGroup = computed(() => hotGroupRaw.value.map((item, index) => ({
   id: item.groupId,
   bg: defaultGroupBgs[index % defaultGroupBgs.length],
   emoji: '👥',
-  groupCount: item.pNum || 3,
-  maxNum: item.maxNum || null,
+  groupCount: item.groupMinNum || item.pNum || 3,
+  maxNum: item.groupMaxNum || item.maxNum || null,
+  currentNum: item.currentNum ?? 0,
   startTime: item.startTime || null,
   endTime: item.endTime || null,
   groupPrice: item.groupPrice,
   originPrice: item.originPrice,
+  description: item.description || '',
+  detailUrl: item.groupId ? `/group/work/${item.groupId}` : '/group',
 })))
 
 // ===== 开源项目（对接后端接口） =====
@@ -2243,15 +2275,21 @@ const defaultFeedbackBgs = [
   'linear-gradient(135deg,#f59e0b,#f97316)',
   'linear-gradient(135deg,#0ea5e9,#6366f1)',
 ]
-const statusTextMap = { PENDING: '待处理', PROCESSING: '处理中', RESOLVED: '已解决', CLOSED: '已关闭' }
+const statusTextMap = {
+  PENDING: '已提交',
+  TRIAGED: '已受理',
+  PROCESSING: '处理中',
+  PENDING_CONFIRM: '待用户确认',
+  RESOLVED: '已解决',
+  REOPENED: '问题仍在',
+  CLOSED: '已关闭',
+  REJECTED: '已驳回',
+}
 const hotFeedback = computed(() => hotFeedbackRaw.value.map((item, index) => ({
   ...item,
   bg: defaultFeedbackBgs[index % defaultFeedbackBgs.length],
   statusText: statusTextMap[item.status] || item.status,
-  tags: [],
-  user: '',
   content: item.summary || item.title || '',
-  time: '',
 })))
 
 // 答疑 - 对应 Question: id, userId, content, status, viewCount, followCount
@@ -2272,11 +2310,11 @@ const mockFlashsale = [
 
 // 拼团 - 对应 GroupActivity: id, type, goodsId, price, pNum, startTime, endTime
 const mockGroup = [
-  { id: 1, goodsId: 201, price: 99, pNum: 3, title: 'Go 微服务开发从零到一', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🚀', groupCount: 3, groupPrice: 99, originPrice: 229 },
-  { id: 2, goodsId: 202, price: 89, pNum: 3, title: 'Java Spring Boot 3.x', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#a1c4fd,#c2e9fb)', emoji: '☕', groupCount: 3, groupPrice: 89, originPrice: 199 },
-  { id: 3, goodsId: 203, price: 59, pNum: 5, title: 'UI/UX 设计系统搭建', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', emoji: '🎨', groupCount: 5, groupPrice: 59, originPrice: 149 },
-  { id: 4, goodsId: 204, price: 129, pNum: 3, title: 'Kubernetes 运维实战', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '☸️', groupCount: 3, groupPrice: 129, originPrice: 299 },
-  { id: 5, goodsId: 205, price: 79, pNum: 2, title: 'TypeScript 高级编程', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '📘', groupCount: 2, groupPrice: 79, originPrice: 179 },
+  { id: 1, goodsId: 201, price: 99, pNum: 3, title: 'Go 微服务开发从零到一', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#a18cd1,#fbc2eb)', emoji: '🚀', groupCount: 3, groupPrice: 99, originPrice: 229, currentNum: 1, detailUrl: '/group/work/1' },
+  { id: 2, goodsId: 202, price: 89, pNum: 3, title: 'Java Spring Boot 3.x', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#a1c4fd,#c2e9fb)', emoji: '☕', groupCount: 3, groupPrice: 89, originPrice: 199, currentNum: 2, detailUrl: '/group/work/2' },
+  { id: 3, goodsId: 203, price: 59, pNum: 5, title: 'UI/UX 设计系统搭建', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', emoji: '🎨', groupCount: 5, groupPrice: 59, originPrice: 149, currentNum: 3, detailUrl: '/group/work/3' },
+  { id: 4, goodsId: 204, price: 129, pNum: 3, title: 'Kubernetes 运维实战', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '☸️', groupCount: 3, groupPrice: 129, originPrice: 299, currentNum: 0, detailUrl: '/group/work/4' },
+  { id: 5, goodsId: 205, price: 79, pNum: 2, title: 'TypeScript 高级编程', startTime: '2026-01-01', endTime: '2026-12-31', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '📘', groupCount: 2, groupPrice: 79, originPrice: 179, currentNum: 1, detailUrl: '/group/work/5' },
 ]
 
 // 开源项目 - 对应 OshSiteInfo: id, siteName, cover, siteUrl, description, tagList
@@ -2317,11 +2355,11 @@ const mockTools = [
 
 // 反馈 - 对应 Feedback: id, title, categoryName, status, tags, likeCount, commentCount, viewCount
 const mockFeedback = [
-  { id: 1, title: '希望增加课程学习进度同步功能', category: '其它', status: 'processing', statusText: '处理中', tags: ['课程设计', '课程内容'], user: 'a123', content: '建议增加跨设备学习进度同步功能，我经常在电脑和手机上切换学习...', likeCount: 3, commentCount: 20, viewCount: 0, time: '2026/6/7', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-  { id: 2, title: '如何修改绑定的手机号', category: '其它', status: 'resolved', statusText: '已解决', tags: ['界面体验'], user: 'a123', content: '我想更换绑定的手机号，但是在个人设置中没有找到修改入口...', likeCount: 0, commentCount: 8, viewCount: 0, time: '2026/4/27', bg: 'linear-gradient(135deg,#10b981,#14b8a6)' },
-  { id: 3, title: '视频播放器全屏后无法退出', category: 'Bug反馈', status: 'processing', statusText: '处理中', tags: ['播放器', 'Bug'], user: '前端小王', content: '在Safari浏览器中全屏播放视频后，按ESC无法退出全屏...', likeCount: 12, commentCount: 5, viewCount: 0, time: '2026/5/20', bg: 'linear-gradient(135deg,#ef4444,#f97316)' },
-  { id: 4, title: '建议增加学习打卡功能', category: '建议', status: 'pending', statusText: '待处理', tags: ['学习', '打卡'], user: '学习达人', content: '希望能增加每日学习打卡功能，记录学习时长和连续天数...', likeCount: 89, commentCount: 15, viewCount: 0, time: '2026/5/15', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
-  { id: 5, title: '移动端页面适配问题', category: 'Bug反馈', status: 'resolved', statusText: '已解决', tags: ['移动端', '适配'], user: '测试员', content: '在iPhone 15 Pro上部分页面底部被遮挡，无法点击按钮...', likeCount: 23, commentCount: 6, viewCount: 0, time: '2026/5/10', bg: 'linear-gradient(135deg,#0ea5e9,#6366f1)' },
+  { id: 1, title: '希望增加课程学习进度同步功能', category: '其它', categoryIcon: '📝', status: 'PROCESSING', statusText: '处理中', tagName: '课程内容', username: 'a123', summary: '建议增加跨设备学习进度同步功能，我经常在电脑和手机上切换学习...', likeCount: 3, collectCount: 12, viewCount: 280, createTime: '2026/6/7' },
+  { id: 2, title: '如何修改绑定的手机号', category: '其它', categoryIcon: '📝', status: 'RESOLVED', statusText: '已解决', tagName: '界面体验', username: 'a123', summary: '我想更换绑定的手机号，但是在个人设置中没有找到修改入口...', likeCount: 0, collectCount: 5, viewCount: 120, createTime: '2026/4/27' },
+  { id: 3, title: '视频播放器全屏后无法退出', category: 'Bug反馈', categoryIcon: '🐛', status: 'PROCESSING', statusText: '处理中', tagName: '播放器', username: '前端小王', summary: '在Safari浏览器中全屏播放视频后，按ESC无法退出全屏...', likeCount: 12, collectCount: 33, viewCount: 611, createTime: '2026/5/20' },
+  { id: 4, title: '建议增加学习打卡功能', category: '建议', categoryIcon: '💡', status: 'PENDING', statusText: '待处理', tagName: '学习', username: '学习达人', summary: '希望能增加每日学习打卡功能，记录学习时长和连续天数...', likeCount: 89, collectCount: 50, viewCount: 1200, createTime: '2026/5/15' },
+  { id: 5, title: '支付完成后订单状态未更新', category: '其它', categoryIcon: '📝', status: 'PENDING_CONFIRM', statusText: '待用户确认', tagName: '课程内容', username: 'normal-test', summary: '我在购买课程时使用微信支付，支付成功后跳转回来，但是订单状态一直显示"待支付"...', likeCount: 50, collectCount: 33, viewCount: 611, createTime: '2026/4/25' },
 ]
 
 // 套餐对比数据
@@ -2371,6 +2409,48 @@ const basicPlans = [
 ]
 
 const adExpanded = ref(false)
+
+// ===== 首页公告栏（对接后端接口 + WebSocket 实时刷新） =====
+const noticesFromApi = ref([])   // 公告栏 channel=1
+const dynamicsFromApi = ref([])  // 动态栏 channel=2
+
+async function loadHomepageNotices() {
+  try {
+    const [noticeRes, dynamicRes] = await Promise.all([
+      $fetch('/homepage/announcement/notice?limit=10', {
+        baseURL: fetchConfig.baseURL,
+        headers: { appid: fetchConfig.headers.appid },
+      }),
+      $fetch('/homepage/announcement/dynamic?limit=10', {
+        baseURL: fetchConfig.baseURL,
+        headers: { appid: fetchConfig.headers.appid },
+      }),
+    ])
+    if (noticeRes && noticeRes.data && noticeRes.data.length > 0) {
+      noticesFromApi.value = noticeRes.data.map(item => ({
+        text: (item.icon ? item.icon + ' ' : '') + (item.title || ''),
+        color: item.color || '#6366f1',
+      }))
+    }
+    if (dynamicRes && dynamicRes.data && dynamicRes.data.length > 0) {
+      dynamicsFromApi.value = dynamicRes.data.map(item => ({
+        text: (item.icon ? item.icon + ' ' : '') + (item.title || ''),
+        color: item.color || '#10b981',
+      }))
+    }
+  } catch (e) {
+    console.warn('[首页公告] 接口请求失败，使用默认数据', e)
+  }
+}
+
+// WebSocket 实时推送：后端广播 HOMEPAGE_ANNOUNCEMENT_REFRESH 时重新拉取
+const { homepageAnnouncementRefreshFlag } = useWebSocket()
+watch(homepageAnnouncementRefreshFlag, (val) => {
+  if (process.client && val) {
+    console.log('[首页公告] WS 推送刷新，重新拉取公告数据')
+    loadHomepageNotices()
+  }
+})
 
 // 公告栏数据
 const noticePaused = ref(false)
@@ -3850,10 +3930,10 @@ const features = [
 .ph-middle {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   border-left: 1px solid #e9d5ff;
   border-right: 1px solid #e9d5ff;
-  padding: 0 24px;
+  padding: 0 28px;
 }
 .ph-middle-vip {
   border: none;
@@ -3862,7 +3942,11 @@ const features = [
 .ph-highlights {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  width: 100%;
+  justify-content: space-between;
+  flex: 1;
+  padding: 12px 0;
 }
 .ph-hl {
   display: flex;
@@ -4005,32 +4089,37 @@ const features = [
 .ph-expand-step {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 12px;
+  flex: 1;
 }
 .ph-expand-step-num {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   border-radius: 50%;
   background: linear-gradient(135deg, #f59e0b, #f97316);
   color: white;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .ph-expand-step-title {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: #1e1b4b;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .ph-expand-step-desc {
-  font-size: 10px;
-  color: #64748b;
-  margin-left: 6px;
+  font-size: 14px;
+  color: #4b5563;
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* 展开动画 */
 .expand-fade-enter-active,
@@ -6599,7 +6688,7 @@ const features = [
   color: #10b981;
 }
 
-/* 反馈卡片 */
+/* 反馈卡片 - 新样式 */
 .feedback-card-home {
   background: white;
   border-radius: 12px;
@@ -6611,107 +6700,109 @@ const features = [
   flex-direction: column;
   height: 220px;
   overflow: hidden;
+  padding: 14px;
+  gap: 0;
 }
 .feedback-card-home:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   transform: translateY(-2px);
 }
-.feedback-card-cover {
-  position: relative;
-  height: 65px;
-  flex-shrink: 0;
-}
-.feedback-category-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  font-size: 10px;
-  font-weight: 600;
-  background: rgba(255,255,255,0.9);
-  color: #374151;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-.feedback-status-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-.fb-status-pending {
-  background: #fef3c7;
-  color: #92400e;
-}
-.fb-status-processing {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.fb-status-resolved {
-  background: #d1fae5;
-  color: #065f46;
-}
-.feedback-card-body {
-  padding: 10px 12px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.feedback-card-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 6px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.feedback-card-tags {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-.feedback-tag-item {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #ecfdf5;
-  color: #065f46;
-  font-weight: 500;
-}
-.feedback-card-footer {
-  margin-top: auto;
+.fb-card-top {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.fb-category-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
   color: #6b7280;
 }
-.feedback-card-user {
-  font-weight: 500;
-  color: #374151;
+.fb-category-icon {
+  font-size: 14px;
 }
-.feedback-card-stats {
-  color: #6b7280;
-}
-.feedback-card-content {
+.fb-status-badge {
   font-size: 11px;
-  color: #6b7280;
-  margin: 0 0 6px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.fb-s-PENDING { background: #fef3c7; color: #92400e; }
+.fb-s-TRIAGED { background: #dbeafe; color: #1d4ed8; }
+.fb-s-PROCESSING { background: #dbeafe; color: #1d4ed8; }
+.fb-s-RESOLVED { background: #d1fae5; color: #065f46; }
+.fb-s-CLOSED { background: #f3f4f6; color: #6b7280; }
+.fb-s-PENDING_CONFIRM { background: #ede9fe; color: #5b21b6; }
+.fb-s-REOPENED { background: #fef3c7; color: #92400e; }
+.fb-s-REJECTED { background: #fee2e2; color: #991b1b; }
+.fb-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px;
   line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.feedback-card-time {
-  margin-left: auto;
-  font-size: 10px;
+.fb-tag-row {
+  margin-bottom: 6px;
+}
+.fb-tag-chip {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: #eff6ff;
+  color: #3b82f6;
+  font-weight: 500;
+}
+.fb-card-summary {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 auto;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  word-break: break-all;
+}
+.fb-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+  margin-bottom: 6px;
+}
+.fb-meta-user {
+  color: #374151;
+  font-weight: 500;
+}
+.fb-meta-time {
   color: #9ca3af;
+}
+.fb-card-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.fb-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #f9fafb;
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
 /* 在线考试 - 卡片样式（同电子书结构） */
