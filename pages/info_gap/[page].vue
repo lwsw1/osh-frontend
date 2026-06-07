@@ -67,16 +67,14 @@
             发布我的信息差
           </n-button>
           <n-select
-            :value="activeSearchCategory || null"
+            :value="activeSearchFilterValue"
             style="width: 140px"
-            placeholder="选择类别"
+            placeholder="选择类别和标签"
             clearable
-            :options="[
-              { label: '技术', value: '技术' },
-              { label: '政策', value: '政策' },
-              { label: '搞钱', value: '搞钱' },
-            ]"
-            @update:value="handleCategorySearch"
+            filterable
+            :options="infoGapSearchFilterOptions"
+            :filter="filterInfoGapSearchFilterOption"
+            @update:value="handleSearchFilterChange"
           />
           <n-input-group style="width: 300px">
             <n-input
@@ -597,6 +595,11 @@ const rows = ref([]);
 const activeSearchTagId = ref(null);
 const activeSearchCategory = ref('');
 const isSearchMode = ref(false);
+const INFO_GAP_CATEGORY_OPTIONS = [
+  { label: '技术', value: 'category:技术', filterType: 'category', rawValue: '技术', searchText: '技术' },
+  { label: '政策', value: 'category:政策', filterType: 'category', rawValue: '政策', searchText: '政策' },
+  { label: '搞钱', value: 'category:搞钱', filterType: 'category', rawValue: '搞钱', searchText: '搞钱' },
+];
 
 // 发布信息差表格中标签相关内容
 const MAX_TAG_COUNT = 3;
@@ -628,6 +631,50 @@ const normalizeSearchTagId = (value) => {
   }
   return text;
 };
+const buildInfoGapFilterOptionValue = (type, value) => `${type}:${normalizeSearchKeyword(value)}`;
+const infoGapSearchFilterOptions = computed(() => [
+  ...INFO_GAP_CATEGORY_OPTIONS,
+  ...candidateTags.value
+    .map((tag) => {
+      const tagName = normalizeSearchKeyword(tag.name);
+      const tagId = normalizeSearchTagId(tag.id);
+      if (!tagName || tagId == null) {
+        return null;
+      }
+
+      return {
+        label: `#${tagName}`,
+        value: buildInfoGapFilterOptionValue('tag', tagId),
+        filterType: 'tag',
+        searchText: tagName,
+        tag: {
+          id: tagId,
+          label: tagName,
+        },
+      };
+    })
+    .filter(Boolean),
+]);
+const activeSearchFilterValue = computed(() => {
+  const normalizedCategory = normalizeSearchKeyword(activeSearchCategory.value);
+  if (normalizedCategory) {
+    const matchedCategory = INFO_GAP_CATEGORY_OPTIONS.find(
+      (option) => option.rawValue === normalizedCategory
+    );
+    return matchedCategory?.value || buildInfoGapFilterOptionValue('category', normalizedCategory);
+  }
+
+  const normalizedTagId = normalizeSearchTagId(activeSearchTagId.value);
+  if (normalizedTagId != null) {
+    const matchedTagById = infoGapSearchFilterOptions.value.find(
+      (option) => option.filterType === 'tag' && normalizeSearchTagId(option.tag?.id) === normalizedTagId
+    );
+    if (matchedTagById) {
+      return matchedTagById.value;
+    }
+  }
+  return null;
+});
 
 const stripInfoGapNoPrefix = (value) => {
   const text = String(value ?? '').trim();
@@ -734,19 +781,24 @@ const buildItemSearchTags = (item = {}) => {
 const buildListRequestConfig = () => {
   const keyword = normalizeSearchKeyword(queryParams.title);
   const shouldUseSearch = isSearchMode.value && !!keyword;
+  const shouldUseTagSearch = activeSearchTagId.value != null;
   const shouldUseLegacyCategorySearch = !!activeSearchCategory.value;
 
-  if (shouldUseLegacyCategorySearch) {
+  if (shouldUseLegacyCategorySearch || shouldUseTagSearch) {
+    const structuredFilterKey = shouldUseLegacyCategorySearch
+      ? encodeURIComponent(activeSearchCategory.value)
+      : `tag-${encodeURIComponent(String(activeSearchTagId.value))}`;
+
     return {
       method: 'POST',
-      key: `info-gap-category-search-${queryParams.type}-p${queryParams.pageNum}-${encodeURIComponent(activeSearchCategory.value)}`,
+      key: `info-gap-category-search-${queryParams.type}-p${queryParams.pageNum}-${structuredFilterKey}`,
       url: '/info_gap/search',
       payload: {
         pageNum: queryParams.pageNum,
         pageSize: queryParams.pageSize,
         keyword: undefined,
-        tagId: null,
-        category: activeSearchCategory.value,
+        tagId: shouldUseTagSearch ? activeSearchTagId.value : null,
+        category: shouldUseLegacyCategorySearch ? activeSearchCategory.value : undefined,
       },
     };
   }
@@ -1038,9 +1090,18 @@ const handleClearSearch = async () => {
 };
 
 const handleTagSearch = async (tag) => {
-  queryParams.title = normalizeSearchKeyword(tag?.label);
-  isSearchMode.value = !!queryParams.title;
-  activeSearchTagId.value = normalizeSearchTagId(tag?.id);
+  const normalizedLabel = normalizeSearchKeyword(tag?.label || tag?.name);
+  const matchedTag = normalizeSearchTagId(tag?.id) != null
+    ? tag
+    : findCandidateTagByName(normalizedLabel);
+  const nextTagId = normalizeSearchTagId(matchedTag?.id);
+  if (nextTagId == null) {
+    return;
+  }
+
+  queryParams.title = '';
+  isSearchMode.value = true;
+  activeSearchTagId.value = nextTagId;
   activeSearchCategory.value = '';
   queryParams.type = 'hot';
   await syncToPage(1);
@@ -1053,6 +1114,36 @@ const handleCategorySearch = async (category) => {
   activeSearchCategory.value = normalizeSearchKeyword(category);
   queryParams.type = 'hot';
   await syncToPage(1);
+};
+
+const handleSearchFilterChange = async (value) => {
+  const selectedValue = normalizeSearchKeyword(value);
+  if (!selectedValue) {
+    await handleClearSearch();
+    return;
+  }
+
+  const selectedOption = infoGapSearchFilterOptions.value.find((option) => option.value === selectedValue);
+  if (!selectedOption) {
+    return;
+  }
+
+  if (selectedOption.filterType === 'tag') {
+    await handleTagSearch(selectedOption.tag);
+    return;
+  }
+
+  await handleCategorySearch(selectedOption.rawValue);
+};
+
+const filterInfoGapSearchFilterOption = (pattern, option) => {
+  const keyword = normalizeSearchKeyword(pattern).toLowerCase();
+  if (!keyword) return true;
+
+  const label = normalizeSearchKeyword(option?.label).toLowerCase();
+  const searchText = normalizeSearchKeyword(option?.searchText).toLowerCase();
+  const rawValue = normalizeSearchKeyword(option?.rawValue).toLowerCase();
+  return label.includes(keyword) || searchText.includes(keyword) || rawValue.includes(keyword);
 };
 
 // ==================== 5) 路由参数与查询参数同步 ====================
@@ -1079,7 +1170,7 @@ const syncToPage = async (page) => {
   const nextTitle = queryParams.title;
   const nextTagId = activeSearchTagId.value;
   const nextCategory = activeSearchCategory.value;
-  const nextSearchMode = isSearchMode.value && (!!nextTitle || !!nextCategory);
+  const nextSearchMode = isSearchMode.value && (!!nextTitle || !!nextCategory || nextTagId != null);
   const shouldNavigate =
     getRoutePageNum() !== page ||
     getRouteType() !== nextType ||
@@ -1098,7 +1189,7 @@ const syncToPage = async (page) => {
     type: nextType,
   };
 
-  if (isSearchMode.value && (nextTitle || nextCategory)) {
+  if (isSearchMode.value && (nextTitle || nextCategory || nextTagId != null)) {
     if (nextTitle) {
       nextQuery.title = nextTitle;
     } else {
@@ -1140,7 +1231,7 @@ watch(
       if (getRouteSearchMode()) {
         queryParams.type = getRouteType();
         queryParams.title = getRouteTitle();
-        isSearchMode.value = !!queryParams.title || !!getRouteCategory();
+        isSearchMode.value = !!queryParams.title || !!getRouteCategory() || getRouteTagId() != null;
         activeSearchTagId.value = getRouteTagId();
         activeSearchCategory.value = getRouteCategory();
         loadData();
@@ -1151,7 +1242,8 @@ watch(
     queryParams.pageNum = getRoutePageNum();
     queryParams.type = getRouteType();
     queryParams.title = getRouteTitle();
-    isSearchMode.value = getRouteSearchMode() && (!!queryParams.title || !!getRouteCategory());
+    isSearchMode.value = getRouteSearchMode()
+      && (!!queryParams.title || !!getRouteCategory() || getRouteTagId() != null);
     activeSearchTagId.value = isSearchMode.value ? getRouteTagId() : null;
     activeSearchCategory.value = isSearchMode.value ? getRouteCategory() : '';
     loadData();
