@@ -276,7 +276,9 @@ const sidePanelCollapsed = ref(false);
 const floatingSideRef = ref<HTMLElement | null>(null);
 const lessonBodyRef = ref<HTMLElement | null>(null);
 const rightColRef = ref<HTMLElement | null>(null);
-const panelPos = reactive({ x: 14, y: 154 });
+const PANEL_EXPANDED_WIDTH = 360;
+const PANEL_COLLAPSED_WIDTH = 44;
+const panelPos = reactive({ x: 16, y: 62 });
 const isDraggingPanel = ref(false);
 const dragMoved = ref(false);
 let dragStartX = 0;
@@ -337,6 +339,7 @@ onMounted(async () => {
   document.addEventListener('pointerdown', onGlobalPointerDown, true);
   window.addEventListener('resize', onWindowResize);
   nextTick(() => {
+    resetPanelPositionToEditor();
     updateDocReuseTipPosition();
   });
 });
@@ -528,7 +531,7 @@ watch(() => form.docBindMode, (mode) => {
 
 watch(() => sidePanelCollapsed.value, () => {
   nextTick(() => {
-    clampPanelPosition();
+    resetPanelPositionToEditor();
     updateDocReuseTipPosition();
   });
 });
@@ -642,11 +645,39 @@ function onPanelHandleClick() {
   sidePanelCollapsed.value = !sidePanelCollapsed.value;
 }
 
+function getEditorAnchorInBody() {
+  const body = lessonBodyRef.value;
+  const container = rightColRef.value;
+  if (!body || !container) return null;
+  const bodyRect = body.getBoundingClientRect();
+  const toolbar = container.querySelector('.editor-host .toolbar') as HTMLElement | null;
+  const editorHost = container.querySelector('.editor-host') as HTMLElement | null;
+  const anchorEl = editorHost || toolbar;
+  if (!anchorEl) return null;
+  const anchorRect = anchorEl.getBoundingClientRect();
+  return {
+    top: (toolbar?.getBoundingClientRect().top ?? anchorRect.top) - bodyRect.top,
+    left: anchorRect.left - bodyRect.left,
+  };
+}
+
+function resetPanelPositionToEditor() {
+  const body = lessonBodyRef.value;
+  if (!body) return;
+  const anchor = getEditorAnchorInBody();
+  const panelWidth = sidePanelCollapsed.value ? PANEL_COLLAPSED_WIDTH : PANEL_EXPANDED_WIDTH;
+  if (anchor) {
+    panelPos.y = anchor.top;
+    panelPos.x = anchor.left - panelWidth;
+  }
+  clampPanelPosition();
+}
+
 function clampPanelPosition() {
   const body = lessonBodyRef.value;
   if (!body) return;
   const bodyRect = body.getBoundingClientRect();
-  const panelWidth = sidePanelCollapsed.value ? 44 : 360;
+  const panelWidth = sidePanelCollapsed.value ? PANEL_COLLAPSED_WIDTH : PANEL_EXPANDED_WIDTH;
   const panelHeight = sidePanelCollapsed.value ? 44 : Math.min(bodyRect.height - 24, bodyRect.height * 0.78);
   const maxX = Math.max(10, bodyRect.width - panelWidth - 10);
   const maxY = Math.max(10, bodyRect.height - panelHeight - 10);
@@ -655,7 +686,7 @@ function clampPanelPosition() {
 }
 
 function onWindowResize() {
-  clampPanelPosition();
+  resetPanelPositionToEditor();
   updateDocReuseTipPosition();
 }
 
