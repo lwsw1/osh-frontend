@@ -151,7 +151,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiGetMaterialUrl, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiGetMaterialUrl, apiGetVideoUrls, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 import { renderCourseDoc, extractCourseDocImageSrcs, replaceCourseDocImageSrc } from '~/composables/useCourseDoc';
 
@@ -177,6 +177,7 @@ function mapOutlineSection(section, chapterId) {
 function isSectionFreePreview(section) {
   return normalizeSectionFreeFlag(section?.freeFlag) === 1;
 }
+const route = useRoute();
 const router = useRouter();
 const courseId = computed(() => props.data?.id || route.params.id);
 
@@ -309,7 +310,7 @@ async function loadOutline() {
         for (const ch of outline.value) {
           const found = (ch.children || []).find(s => String(s.id) === targetId);
           if (found) {
-            selectSection(found);
+            await selectSection(found);
             return;
           }
         }
@@ -320,7 +321,7 @@ async function loadOutline() {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
             if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
-              selectSection(s);
+              await selectSection(s);
               return;
             }
           }
@@ -330,27 +331,54 @@ async function loadOutline() {
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
-            selectSection(s);
+            await selectSection(s);
             return;
           }
         }
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[CourseStudyCenter] loadOutline failed', err);
+  }
   finally { outlineLoading.value = false; }
 }
 
-function selectSection(section) {
+function resolveSignedVideoUrl(section, urlMap) {
+  if (!section?.id || !urlMap) return '';
+  const key = section.id;
+  return urlMap[key] || urlMap[String(key)] || '';
+}
+
+async function loadSectionVideoUrl(section) {
+  const outlineUrl = section?.mediaUrl && !section.mediaUrl.includes('pending') ? section.mediaUrl : '';
+  if (outlineUrl && /^https?:\/\//i.test(outlineUrl)) {
+    return outlineUrl;
+  }
+  if (!section?.id) return outlineUrl;
+  try {
+    const urlRes = await apiGetVideoUrls(section.id, 60);
+    if (urlRes?.code === 200 && urlRes.data) {
+      const signed = resolveSignedVideoUrl(section, urlRes.data);
+      if (signed && !signed.includes('pending')) {
+        return signed;
+      }
+    }
+  } catch (err) {
+    console.warn('[CourseStudyCenter] loadSectionVideoUrl failed', err);
+  }
+  return outlineUrl;
+}
+
+async function selectSection(section) {
   // TRIAL 模式下，非免费章节拦截
   if (accessLevel.value === 'TRIAL' && !isSectionFreePreview(section)) {
     showLockedTip();
     return;
   }
   currentSection.value = section;
-  currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
-    ? section.mediaUrl : '';
+  currentVideoUrl.value = await loadSectionVideoUrl(section);
   // 先用大纲快照回显，再按 section/content 接口拉最新文档内容覆盖。
-  renderAndRefreshDoc(section.textContent || '');
+  await renderAndRefreshDoc(section.textContent || '');
   if (String(section.sectionType || section.type || '').toLowerCase() === 'text') {
     refreshSectionDocContent(section.id);
   }
