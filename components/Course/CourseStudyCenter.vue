@@ -74,25 +74,8 @@
         </div>
       </div>
 
-      <!-- 右侧：章节目录 + 资料 -->
+      <!-- 右侧：章节目录 -->
       <div class="sidebar-col">
-        <!-- 资料下载（折叠） -->
-        <div class="sidebar-section">
-          <div class="sidebar-header" @click="toggleMaterials">
-            <span class="sidebar-title">📦 课程资料</span>
-            <span class="sidebar-toggle">{{ showMaterials ? '▲' : '▼' }}</span>
-          </div>
-          <div v-if="showMaterials" class="mat-list">
-            <div v-if="materialsLoading" class="mat-tip">加载中...</div>
-            <div v-else-if="materials.length === 0" class="mat-tip">暂无资料</div>
-            <div v-for="mat in materials" :key="mat.id" class="mat-row">
-              <span class="mat-icon">📄</span>
-              <span class="mat-name">{{ mat.materialName || mat.name }}</span>
-              <button class="mat-dl" @click="downloadMat(mat)">下载</button>
-            </div>
-          </div>
-        </div>
-
         <!-- 章节目录 -->
         <div class="sidebar-section outline-section">
           <div class="sidebar-header-static">
@@ -151,7 +134,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiGetMaterialUrl, apiGetVideoUrls, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiGetVideoUrls, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 import { renderCourseDoc, extractCourseDocImageSrcs, replaceCourseDocImageSrc } from '~/composables/useCourseDoc';
 
@@ -423,35 +406,6 @@ function onVideoEnded() {
       }
     }
   }
-}
-
-// ===== 资料 =====
-const showMaterials = ref(false);
-const materials = ref([]);
-const materialsLoading = ref(false);
-
-async function toggleMaterials() {
-  showMaterials.value = !showMaterials.value;
-  if (showMaterials.value && materials.value.length === 0) {
-    materialsLoading.value = true;
-    try {
-      const res = await $fetch(`/course/${courseId.value}/materials`, {
-        baseURL: fetchConfig.baseURL,
-        headers: getAuthHeaders(),
-      });
-      if (res?.code === 200) materials.value = res.data || [];
-    } catch {}
-    finally { materialsLoading.value = false; }
-  }
-}
-
-async function downloadMat(mat) {
-  const id = mat.id || mat.materialId;
-  if (!id) { window.open(mat.fileUrl || mat.url, '_blank'); return; }
-  try {
-    const res = await apiGetMaterialUrl(id, 120);
-    window.open(res?.code === 200 && res.data ? res.data : (mat.fileUrl || mat.url), '_blank');
-  } catch { window.open(mat.fileUrl || mat.url, '_blank'); }
 }
 
 // ===== 问题面板开关 =====
@@ -749,22 +703,7 @@ onMounted(loadOutline);
 .sidebar-toggle { font-size: 10px; color: #6f7c8f; }
 .section-count { font-size: 12px; color: #6f7c8f; }
 
-/* 资料列表 */
-.mat-list { padding: 8px 12px 12px; }
 .mat-tip { font-size: 12px; color: #555; padding: 8px 4px; }
-.mat-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 4px; border-bottom: 1px solid #1e1e1e;
-}
-.mat-row:last-child { border-bottom: none; }
-.mat-icon { font-size: 14px; flex-shrink: 0; }
-.mat-name { flex: 1; font-size: 12px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mat-dl {
-  background: none; border: 1px solid #18a058; color: #18a058;
-  border-radius: 3px; padding: 2px 8px; font-size: 11px; cursor: pointer;
-  flex-shrink: 0; transition: all 0.15s;
-}
-.mat-dl:hover { background: #18a058; color: #fff; }
 
 /* 章节目录 */
 .outline-list { overflow-y: auto; }
