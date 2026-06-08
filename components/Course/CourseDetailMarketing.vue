@@ -85,7 +85,9 @@ const emit = defineEmits(['pay', 'refresh']);
 
 const route = useRoute();
 const courseId = route.params.id;
-const isPaid = computed(() => props.isPaid || props.data?.buyFlag === 1);
+const isPaid = computed(() =>
+  props.isPaid || props.data?.buyFlag === 1 || props.data?.accessLevel === 'FULL',
+);
 const editMode = ref(false);
 const courseStatusCode = computed(() => Number(props.data?.status));
 const courseStatusText = computed(() => COURSE_STATUS_TEXT_MAP[courseStatusCode.value] || `状态${props.data?.status ?? '-'}`);
