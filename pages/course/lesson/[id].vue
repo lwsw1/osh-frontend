@@ -733,26 +733,29 @@ function onVideoFileChange(e: Event) {
 
 async function uploadVideo(file: File) {
   videoUploading.value = true;
-  uploadProgress.value = 10;
-  const timer = setInterval(() => {
-    if (uploadProgress.value < 85) uploadProgress.value += 4;
-  }, 600);
+  uploadProgress.value = 0;
   try {
-    const res: any = await apiUploadVideo(file, file.name);
-    clearInterval(timer);
-    uploadProgress.value = 100;
+    // 传 sectionId 后，后端会先删该小节 OSS 旧视频（若有）再上传新文件
+    const sectionIdForUpload = currentSectionId.value || null;
+    const res: any = await apiUploadVideo(
+      file,
+      file.name,
+      sectionIdForUpload,
+      (percent) => { uploadProgress.value = percent; },
+    );
     if (res?.code === 200) {
       videoRelativePath.value = res.data?.relativePath || '';
       videoUrl.value = res.data?.url || '';
+      if (res.data?.size) {
+        sectionData.value = { ...sectionData.value, fileSize: res.data.size };
+      }
       message.success('视频上传成功');
-      // 后台静默保存
       autoSaveVideo();
     } else {
       message.error(res?.msg || '上传失败');
     }
-  } catch {
-    clearInterval(timer);
-    message.error('视频上传失败');
+  } catch (err: any) {
+    message.error(err?.message || '视频上传失败');
   } finally {
     videoUploading.value = false;
     uploadProgress.value = 0;
