@@ -74,14 +74,13 @@
         </div>
       </div>
 
-      <!-- 收起后：右侧悬浮展开把手 -->
+      <!-- 课程目录展开/收起：固定贴右同一位置，展开与收起共用同一把手 -->
       <button
-        v-if="!sidebarExpanded"
-        class="sidebar-expand-tab"
-        title="展开课程目录"
-        @click="sidebarExpanded = true"
+        class="sidebar-toggle-btn"
+        :title="sidebarExpanded ? '收起课程目录' : '展开课程目录'"
+        @click="sidebarExpanded = !sidebarExpanded"
       >
-        <span class="tab-icon">‹</span>
+        <span class="toggle-icon">{{ sidebarExpanded ? '›' : '‹' }}</span>
         <span class="tab-text">目录</span>
       </button>
 
@@ -91,16 +90,7 @@
         <div class="sidebar-section outline-section">
           <div class="sidebar-header-static">
             <span class="sidebar-title">📋 课程目录</span>
-            <div class="sidebar-header-actions">
-              <span class="section-count">{{ totalSections }} 节</span>
-              <button
-                class="sidebar-collapse-btn"
-                title="收起课程目录"
-                @click="sidebarExpanded = false"
-              >
-                ›
-              </button>
-            </div>
+            <span class="section-count">{{ totalSections }} 节</span>
           </div>
           <div v-if="outlineLoading" class="mat-tip">加载中...</div>
           <div v-else class="outline-list">
@@ -703,13 +693,12 @@ onMounted(loadOutline);
   pointer-events: none;
 }
 
-/* 收起后贴右的展开把手 */
-.sidebar-expand-tab {
+/* 目录把手：始终贴右、固定纵向位置，与标题栏同一高度 */
+.sidebar-toggle-btn {
   position: absolute;
   right: 0;
-  top: 50%;
-  z-index: 12;
-  transform: translateY(-50%);
+  top: 40px;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -724,11 +713,11 @@ onMounted(loadOutline);
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.28);
   transition: background 0.2s ease, color 0.2s ease;
 }
-.sidebar-expand-tab:hover {
+.sidebar-toggle-btn:hover {
   background: rgba(24, 160, 88, 0.18);
   color: #66db9f;
 }
-.tab-icon {
+.toggle-icon {
   font-size: 16px;
   line-height: 1;
   font-weight: 700;
@@ -782,33 +771,13 @@ onMounted(loadOutline);
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+/* 展开时给标题栏留出手把宽度，避免与「X 节」重叠 */
+.study-body:not(.sidebar-collapsed) .sidebar-header-static {
+  padding-right: 48px;
 }
 .sidebar-title { font-size: 13px; font-weight: 700; color: #d7e1ee; }
 .sidebar-toggle { font-size: 10px; color: #6f7c8f; }
 .section-count { font-size: 12px; color: #6f7c8f; }
-/* 目录标题栏里的收起按钮 */
-.sidebar-collapse-btn {
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #9aa8bc;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-.sidebar-collapse-btn:hover {
-  background: rgba(24, 160, 88, 0.16);
-  border-color: rgba(24, 160, 88, 0.45);
-  color: #66db9f;
-}
 
 .mat-tip { font-size: 12px; color: #555; padding: 8px 4px; }
 
@@ -907,12 +876,6 @@ onMounted(loadOutline);
 
   .sidebar-col.collapsed {
     display: none;
-  }
-
-  .sidebar-expand-tab {
-    top: auto;
-    bottom: 24px;
-    transform: none;
   }
 }
 </style>
