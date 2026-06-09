@@ -147,7 +147,12 @@
             <!-- 有有效视频：显示播放器 -->
             <template v-if="validVideoUrl">
               <video ref="videoEl" :src="validVideoUrl" controls class="video-player" />
-              <div class="video-actions">
+              <div v-if="videoUploading" class="upload-overlay">
+                <n-spin size="medium" />
+                <p class="upload-progress-text">上传中 {{ uploadProgress }}%</p>
+                <n-progress type="line" :percentage="uploadProgress" style="width:200px;margin-top:6px" />
+              </div>
+              <div v-else class="video-actions">
                 <button class="btn-reupload" @click="videoInputRef?.click()">🔄 重新上传</button>
               </div>
             </template>
@@ -1188,6 +1193,16 @@ function parseDuration(str: string) {
   position: relative;
 }
 .video-player { width: 100%; height: 100%; display: block; object-fit: contain; }
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.72);
+}
 .video-actions {
   position: absolute; bottom: 8px; right: 8px;
 }
