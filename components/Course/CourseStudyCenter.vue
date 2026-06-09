@@ -16,8 +16,8 @@
       </div>
     </div>
 
-    <!-- 主体：左侧视频 + 右侧面板 -->
-    <div class="study-body">
+    <!-- 主体：左侧视频 + 右侧课程目录（可收起） -->
+    <div class="study-body" :class="{ 'sidebar-collapsed': !sidebarExpanded }">
       <!-- 左侧：视频播放器 -->
       <div class="video-col">
         <!-- 播放器 -->
@@ -74,13 +74,33 @@
         </div>
       </div>
 
+      <!-- 收起后：右侧悬浮展开把手 -->
+      <button
+        v-if="!sidebarExpanded"
+        class="sidebar-expand-tab"
+        title="展开课程目录"
+        @click="sidebarExpanded = true"
+      >
+        <span class="tab-icon">‹</span>
+        <span class="tab-text">目录</span>
+      </button>
+
       <!-- 右侧：章节目录 -->
-      <div class="sidebar-col">
+      <div class="sidebar-col" :class="{ collapsed: !sidebarExpanded }">
         <!-- 章节目录 -->
         <div class="sidebar-section outline-section">
           <div class="sidebar-header-static">
             <span class="sidebar-title">📋 课程目录</span>
-            <span class="section-count">{{ totalSections }} 节</span>
+            <div class="sidebar-header-actions">
+              <span class="section-count">{{ totalSections }} 节</span>
+              <button
+                class="sidebar-collapse-btn"
+                title="收起课程目录"
+                @click="sidebarExpanded = false"
+              >
+                ›
+              </button>
+            </div>
           </div>
           <div v-if="outlineLoading" class="mat-tip">加载中...</div>
           <div v-else class="outline-list">
@@ -411,6 +431,10 @@ function onVideoEnded() {
 // ===== 问题面板开关 =====
 const showQaPanel = ref(false);
 
+// ===== 课程目录侧栏展开/收起 =====
+// 展开：右侧显示章节目录；收起：目录滑到右侧不占位，视频与文档区域占满宽度
+const sidebarExpanded = ref(true);
+
 // ===== 工具 =====
 function fmtDuration(sec) {
   if (!sec) return '';
@@ -470,16 +494,18 @@ onMounted(loadOutline);
   gap: 18px;
   padding: 18px 18px 24px;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ===== 左侧视频区 ===== */
 .video-col {
-  flex: 4;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow-y: auto;
   scrollbar-width: none;
+  transition: flex 0.28s ease;
 }
 .video-col::-webkit-scrollbar { display: none; }
 
@@ -652,9 +678,8 @@ onMounted(loadOutline);
 
 /* ===== 右侧侧边栏 ===== */
 .sidebar-col {
-  flex: 1;
-  min-width: 260px;
-  max-width: 320px;
+  flex: 0 0 300px;
+  width: 300px;
   background: rgba(18, 21, 29, 0.94);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 20px;
@@ -663,6 +688,64 @@ onMounted(loadOutline);
   overflow: hidden;
   box-shadow: 0 20px 48px rgba(0,0,0,0.24);
   backdrop-filter: blur(14px);
+  transition: width 0.28s ease, flex-basis 0.28s ease, opacity 0.28s ease, transform 0.28s ease;
+}
+
+/* 收起：目录滑到右侧，不再占据布局空间 */
+.sidebar-col.collapsed {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(24px);
+  overflow: hidden;
+  border-width: 0;
+  pointer-events: none;
+}
+
+/* 收起后贴右的展开把手 */
+.sidebar-expand-tab {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  z-index: 12;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: none;
+  border-radius: 14px 0 0 14px;
+  background: rgba(18, 21, 29, 0.96);
+  color: #d7e1ee;
+  cursor: pointer;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.28);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.sidebar-expand-tab:hover {
+  background: rgba(24, 160, 88, 0.18);
+  color: #66db9f;
+}
+.tab-icon {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+}
+.tab-text {
+  font-size: 12px;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+}
+
+/* 目录收起后，视频与文档区域放宽到全宽 */
+.study-body.sidebar-collapsed .player-box,
+.study-body.sidebar-collapsed .video-info-bar,
+.study-body.sidebar-collapsed .doc-panel-wrap,
+.study-body.sidebar-collapsed .qa-panel-wrap {
+  width: 100%;
+  max-width: none;
 }
 
 .sidebar-section {
@@ -699,9 +782,33 @@ onMounted(loadOutline);
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .sidebar-title { font-size: 13px; font-weight: 700; color: #d7e1ee; }
 .sidebar-toggle { font-size: 10px; color: #6f7c8f; }
 .section-count { font-size: 12px; color: #6f7c8f; }
+/* 目录标题栏里的收起按钮 */
+.sidebar-collapse-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #9aa8bc;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.sidebar-collapse-btn:hover {
+  background: rgba(24, 160, 88, 0.16);
+  border-color: rgba(24, 160, 88, 0.45);
+  color: #66db9f;
+}
 
 .mat-tip { font-size: 12px; color: #555; padding: 8px 4px; }
 
@@ -782,7 +889,8 @@ onMounted(loadOutline);
   }
 
   .sidebar-col {
-    min-width: 280px;
+    flex-basis: 280px;
+    width: 280px;
   }
 }
 
@@ -793,8 +901,18 @@ onMounted(loadOutline);
   }
 
   .sidebar-col {
-    max-width: none;
-    min-width: 0;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .sidebar-col.collapsed {
+    display: none;
+  }
+
+  .sidebar-expand-tab {
+    top: auto;
+    bottom: 24px;
+    transform: none;
   }
 }
 </style>
