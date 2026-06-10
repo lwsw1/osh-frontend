@@ -72,6 +72,8 @@ function goBack() {
 }
 
 .hero {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 20px;
   padding: 28px;
   border-radius: 28px;
@@ -82,24 +84,38 @@ function goBack() {
   box-shadow: 0 26px 60px rgba(15, 23, 42, 0.22);
 }
 
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.46) 0%, rgba(15, 23, 42, 0.2) 48%, transparent 100%);
+  pointer-events: none;
+}
+
 .hero-label {
+  position: relative;
   margin: 0 0 10px;
   font-size: 11px;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  opacity: 0.72;
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .hero h1 {
+  position: relative;
   margin: 0;
   font-size: clamp(30px, 4vw, 42px);
+  color: #f8fafc;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
 .hero p:last-child {
+  position: relative;
   margin: 12px 0 0;
   max-width: 680px;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .action-buttons {

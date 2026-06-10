@@ -80,6 +80,7 @@ const menuGroups = [
         label: '我的订单',
         items: [
             { title: '订单记录', name: 'user-buy-page' },
+            { title: '会员中心', name: 'user-member' },
         ]
     },
     {

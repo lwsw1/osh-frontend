@@ -61,33 +61,30 @@
 
         <div class="form-group">
           <label class="form-label">权限等级</label>
-          <select v-model.number="bookInfo.level" class="form-input">
-            <option :value="1">1级</option>
-            <option :value="2">2级</option>
-            <option :value="3">3级</option>
-            <option :value="4">4级</option>
-            <option :value="5">5级</option>
-          </select>
+          <n-select
+            v-model:value="bookInfo.level"
+            :options="levelOptions"
+            class="form-select"
+            placeholder="请选择权限等级"
+          />
         </div>
 
         <!-- 标签 -->
         <div class="form-group">
           <label class="form-label">标签</label>
-          <div class="tags-container">
-            <span v-for="(tag, index) in bookInfo.tags" :key="index" class="tag">
-              {{ tag }}
-              <button class="tag-remove" @click="removeTag(index)">×</button>
-            </span>
-          </div>
-          <div class="tag-input-wrap">
-            <input
-              v-model="tagInput"
-              class="form-input"
-              placeholder="输入标签后按回车"
-              @keyup.enter="addTag"
-            />
-            <button class="add-tag-btn" @click="addTag">添加</button>
-          </div>
+          <n-select
+            v-model:value="bookInfo.tags"
+            multiple
+            filterable
+            tag
+            clearable
+            :loading="tagsLoading"
+            :options="tagOptions"
+            :filter="filterTagOption"
+            class="form-select tag-select"
+            placeholder="输入标签名，查询已有电子书标签"
+            :on-create="createTagOption"
+          />
         </div>
 
         <div class="toc-divider"></div>
@@ -158,7 +155,9 @@
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { ref, watch, onMounted, computed, defineProps, defineEmits } from 'vue'
-import { apiGetBookDetail, apiGetPreviewUrls, apiUploadBookImage } from '~/composables/Api/Book/book'
+import { NSelect } from 'naive-ui'
+import { apiGetBookDetail, apiGetPreviewUrls, apiGetBookTags, apiUploadBookImage } from '~/composables/Api/Book/book'
+import { BOOK_LEVEL_OPTIONS } from '~/composables/bookLevels'
 
 // ==================== 【书的基础信息】 ====================
 const props = defineProps({
@@ -193,20 +192,50 @@ const bookInfo = ref({
   description: '',
   price: 0.00,
   tPrice: 0.00,
-  level: 1,
+  level: 0,
   tags: []
 })
 
+const levelOptions = BOOK_LEVEL_OPTIONS
+
 // 标签输入
-const tagInput = ref('')
-const addTag = () => {
-  if (tagInput.value.trim() && !bookInfo.value.tags.includes(tagInput.value.trim())) {
-    bookInfo.value.tags.push(tagInput.value.trim())
-    tagInput.value = ''
+const tagsLoading = ref(false)
+const tagOptions = ref([])
+
+const normalizeTagName = (tag) => {
+  if (typeof tag === 'string') {
+    return tag.trim()
+  }
+  return String(tag?.name || tag?.tagName || tag?.label || tag?.value || '').trim()
+}
+
+const loadBookTags = async () => {
+  tagsLoading.value = true
+  try {
+    const response = await apiGetBookTags()
+    const tags = response?.data || response || []
+    const uniqueTags = [...new Set((Array.isArray(tags) ? tags : []).map(normalizeTagName).filter(Boolean))]
+    tagOptions.value = uniqueTags.map((tag) => ({
+      label: tag,
+      value: tag,
+    }))
+  } catch (error) {
+    console.error('加载电子书标签失败:', error)
+    tagOptions.value = []
+  } finally {
+    tagsLoading.value = false
   }
 }
-const removeTag = (index) => {
-  bookInfo.value.tags.splice(index, 1)
+
+const filterTagOption = (pattern, option) => {
+  const keyword = pattern.trim().toLowerCase()
+  if (!keyword) return true
+  return String(option.label || option.value || '').toLowerCase().includes(keyword)
+}
+
+const createTagOption = (inputVal) => {
+  const tag = inputVal.trim()
+  return tag ? { label: tag, value: tag } : false
 }
 
 // ==================== 【章节数据】 ====================
@@ -798,7 +827,7 @@ const saveToDatabase = async () => {
       desc: bookInfo.value.description,
       price: bookInfo.value.price,
       t_price: bookInfo.value.tPrice,
-    level: bookInfo.value.level,
+      level: bookInfo.value.level,
       tags: bookInfo.value.tags.length > 0 ? bookInfo.value.tags : [],
       chapters: normalizedChapters.map(ch => ({
         id: ch.id,
@@ -828,6 +857,7 @@ watch(currentContent, () => {
 // 合并重复的onMounted
 onMounted(() => {
   updateToc()
+  loadBookTags()
 })
 
 // 暴露给父组件调用
@@ -862,7 +892,7 @@ defineExpose({
     bookInfo.value.description = data.desc || data.description || ''
     bookInfo.value.price = data.price !== undefined ? Number(data.price) : 0
     bookInfo.value.tPrice = data.t_price !== undefined ? Number(data.t_price) : 0
-    bookInfo.value.level = data.level !== undefined ? Number(data.level) : 1
+    bookInfo.value.level = data.level !== undefined ? Number(data.level) : 0
     
     console.log('📸 设置后的封面 - 保存用:', bookInfo.value.cover)
     
@@ -1054,55 +1084,24 @@ defineExpose({
   flex: 1;
 }
 
-/* 标签 */
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-  min-height: 32px;
+/* 下拉选择 */
+.form-select {
+  width: 100%;
 }
 
-.tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: #3b82f6;
-  color: white;
-  border-radius: 4px;
-  font-size: 12px;
+:deep(.form-select .n-base-selection) {
+  --n-border: 1px solid #e2e8f0 !important;
+  --n-border-hover: 1px solid #3b82f6 !important;
+  --n-border-focus: 1px solid #3b82f6 !important;
+  --n-box-shadow-focus: 0 0 0 2px rgba(59, 130, 246, 0.12) !important;
+  --n-border-radius: 6px !important;
+  --n-height: 36px !important;
+  background: #fff;
 }
 
-.tag-remove {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.tag-input-wrap {
-  display: flex;
-  gap: 6px;
-}
-
-.add-tag-btn {
-  padding: 8px 16px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.2s;
-}
-
-.add-tag-btn:hover {
-  background: #2563eb;
+:deep(.tag-select .n-base-selection) {
+  min-height: 38px;
+  height: auto;
 }
 
 .section-title {
