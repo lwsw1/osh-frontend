@@ -169,3 +169,10 @@ export function useSiteDemoStopApi(id) {
         method: "POST",
     })
 }
+
+// 获取内部网站列表
+export function useSiteResourceOptions() {
+    return useHttpGet("SiteResourceOptionsList", `/site/resources/options`, {
+        $: true
+    })
+}
