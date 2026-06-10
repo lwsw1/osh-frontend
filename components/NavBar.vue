@@ -163,6 +163,10 @@ const GroupIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', 
   h('path', { d: 'M2 14c0-2 1.5-3 4-3s4 1 4 3M8 14c0-2 1.5-3 4-3s4 1 4 3', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
 ]);
 
+const MemberIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('path', { d: 'M3 8l2-4 4 3 4-3 2 4-1.5 7h-9L3 8z', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+  h('path', { d: 'M5 11h8', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
+]);
 const ProjectIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
   h('path', { d: 'M3 8l6-5 6 5', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
   h('path', { d: 'M9 3v12M5 11h8', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
@@ -211,6 +215,7 @@ const menus = ref([
   { name: '答疑', path: '/question_answer/1', match: [{ name: 'question_answer-page' }], iconComponent: QAIcon },
   { name: '秒杀', path: '/seckill', match: [{ name: 'seckill' }], iconComponent: FlashIcon },
   { name: '拼团', path: '/group', match: [{ name: 'group-index' }], iconComponent: GroupIcon },
+  { name: '会员', path: '/user/member', match: [{ name: 'user-member' }], iconComponent: MemberIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
   { name: '工具', path: '/tool', match: [{ name: 'tool' }, { name: 'tool-page' }], iconComponent: ToolIcon },
