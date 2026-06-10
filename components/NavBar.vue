@@ -223,6 +223,7 @@ const menus = ref([
   { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
   {
     name: '内部资源',
+    id: "innerResource",
     iconComponent: SiteIcon,
     children: [
       { name: '内部网站', path: '/site', match: [{ name: 'site-index' }] , iconComponent: SiteIcon},
@@ -405,35 +406,58 @@ onMounted(() => {
       menus.value.splice(auditMenuIndex, 1);
     }
   }
-
   const permissions = usePermissions()
-  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
+
+  const internalMenuIndex = menus.value.findIndex(item => item.id === 'innerResource');
+
 
   if (internalMenuIndex !== -1) {
-    const internalMenu = menus.value[internalMenuIndex];
-    const visibleChildren = [];
+    let innerResMenu = menus.value[internalMenuIndex]
 
-    if (permissions.value.innerSite !== undefined) {
-      visibleChildren.push(internalMenu.children[0]);
+    if (permissions.value.innerSite === undefined || permissions.value.innerSite.length === 0) {
+
+      const internalSiteIndex = innerResMenu.children.findIndex(item => item.path === '/site');
+      if (internalSiteIndex !== -1) {
+        innerResMenu.children.splice(internalSiteIndex, 1);
+      }
+    }
+    if (permissions.value.innerResource === undefined || permissions.value.innerResource.length === 0) {
+      const internalResourceIndex = innerResMenu.children.findIndex(item => item.path === '/resource');
+      if (internalResourceIndex !== -1) {
+        innerResMenu.children.splice(internalResourceIndex, 1);
+      }
     }
 
-    if (permissions.value.internalResource !== undefined) {
-      visibleChildren.push(internalMenu.children[1]);
-    }
-
-    if (visibleChildren.length === 0) {
+    if (innerResMenu.children.length === 0) {
       menus.value.splice(internalMenuIndex, 1);
-    } else if (visibleChildren.length === 1) {
-      menus.value[internalMenuIndex] = {
-        name: visibleChildren[0].name,
-        path: visibleChildren[0].path,
-        match: visibleChildren[0].match,
-        iconComponent: SiteIcon
-      };
-    } else {
-      internalMenu.children = visibleChildren;
     }
   }
+
+  // if (internalMenuIndex !== -1) {
+  //   const internalMenu = menus.value[internalMenuIndex];
+  //   const visibleChildren = [];
+
+  //   if (permissions.value.innerSite !== undefined) {
+  //     visibleChildren.push(internalMenu.children[0]);
+  //   }
+
+  //   if (permissions.value.internalResource !== undefined) {
+  //     visibleChildren.push(internalMenu.children[1]);
+  //   }
+
+  //   if (visibleChildren.length === 0) {
+  //     menus.value.splice(internalMenuIndex, 1);
+  //   } else if (visibleChildren.length === 1) {
+  //     menus.value[internalMenuIndex] = {
+  //       name: visibleChildren[0].name,
+  //       path: visibleChildren[0].path,
+  //       match: visibleChildren[0].match,
+  //       iconComponent: SiteIcon
+  //     };
+  //   } else {
+  //     internalMenu.children = visibleChildren;
+  //   }
+  // }
 
   let isFounder = false
   if (user.value) {
