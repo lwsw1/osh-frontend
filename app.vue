@@ -5,8 +5,8 @@
         <NuxtLayout>
           <NuxtPage/>
         </NuxtLayout>
-        <!-- 全局主题切换挂件 -->
-        <ThemeWidget />
+        <!-- 全局主题切换挂件 - 暂时对所有人隐藏 -->
+        <!-- <ThemeWidget /> -->
       </NDialogProvider>
     </NMessageProvider>
   </NConfigProvider>
