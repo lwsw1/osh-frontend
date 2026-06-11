@@ -25,21 +25,34 @@
                 <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">搜索</n-button>
                 <n-button type="primary" @click="handleRefreshAll" style="margin-right: 8px;" :loading="checkingAll">
                     <template #icon><n-icon>
-                            <Refresh />
-                        </n-icon></template>
-                    刷新检查
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Refresh />
+                                </template>
+                                刷新检查
+                        </n-tooltip>
+                        </n-icon>
+                    </template>
                 </n-button>
                 <n-button type="primary" @click="openTagManageModal" style="margin-right: 8px;">
                     <template #icon><n-icon>
-                            <Add />
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Bookmark />
+                                </template>
+                                标签管理
+                        </n-tooltip>
                         </n-icon></template>
-                    管理标签
                 </n-button>
                 <n-button type="primary" @click="openAddModal">
                     <template #icon><n-icon>
-                            <Add />
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Add />
+                                </template>
+                                新增网站
+                        </n-tooltip>
                         </n-icon></template>
-                    新增网站
                 </n-button>
             </div>
         </div>
@@ -277,7 +290,7 @@ import {
 } from 'naive-ui'
 import SiteDemoConfigForm from './SiteDemoConfigForm.vue'
 import ResourceSelector from './ResourceSelector.vue'
-import { Search, Add, Globe, CreateOutline, TrashOutline, Refresh, TimeOutline, PlayCircleOutline, CheckmarkCircleOutline, StopCircleOutline } from '@vicons/ionicons5'
+import { Search, Add, Globe, CreateOutline, Bookmark, TrashOutline, Refresh, TimeOutline, PlayCircleOutline, CheckmarkCircleOutline, StopCircleOutline } from '@vicons/ionicons5'
 import { h } from 'vue'
 
 const preContent = (text) => () => h('pre', { style: 'white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; margin: 0; font-family: inherit;' }, text)
