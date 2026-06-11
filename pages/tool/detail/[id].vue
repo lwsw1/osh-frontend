@@ -98,8 +98,8 @@
       <section v-if="tool && isPaidTool" class="detail-section package-section">
         <div class="section-title-row">
           <div>
-            <p class="section-kicker">Packages</p>
-            <h2>购买套餐</h2>
+            <p class="section-kicker">Quota</p>
+            <h2>使用次数说明</h2>
           </div>
           <div class="quota-summary">
             <span>剩余次数</span>
@@ -107,166 +107,23 @@
           </div>
         </div>
 
-        <div v-if="packages.length" class="package-grid">
-          <article
-            v-for="item in packages"
-            :key="item.id || item.packageName"
-            class="package-card"
-            :class="{ disabled: Number(item.status) === 0 }"
-          >
-            <div class="package-head">
-              <h3>{{ item.packageName }}</h3>
-              <span class="package-status">{{ Number(item.status) === 0 ? '已下架' : '可购买' }}</span>
-            </div>
-            <div class="package-count">
-              <strong>{{ item.useCount || 0 }}</strong>
-              <span>次使用次数</span>
-            </div>
-            <div class="package-price">
-              <span v-if="Number(item.price || 0) > 0" class="cash-price">¥{{ item.price }}</span>
-              <span v-if="Number(item.payType) === 3 && Number(item.pointCost || 0) > 0" class="point-price">
-                + {{ item.pointCost }} 积分
-              </span>
-              <span v-if="Number(item.price || 0) <= 0" class="free-price">免费</span>
-            </div>
-            <button
-              class="buy-btn"
-              :disabled="Number(item.status) === 0"
-              @click="handleBuyPackage(item)"
-            >
-              {{ Number(item.status) === 0 ? '暂不可买' : '购买套餐' }}
-            </button>
-          </article>
-        </div>
-
-        <div v-else class="empty-packages">
-          暂无可购买套餐
+        <div class="empty-packages">
+          当前工具不再单独售卖套餐，请前往统一次数购买入口购买使用次数。
+          <br>
+          单次使用将消耗 {{ tool.quotaCost || 1 }} 工具点数。
         </div>
       </section>
-
-      <ClientOnly>
-        <teleport to="body">
-          <div
-            v-if="purchaseModalVisible"
-            class="purchase-overlay"
-            @click.self="handlePurchaseModalClose"
-          >
-            <div v-if="selectedPackage" class="purchase-modal-card">
-              <div class="purchase-modal-topbar">
-                <div class="purchase-modal-topbar-title">扫码支付</div>
-                <button class="purchase-close-btn" type="button" @click="handlePurchaseModalClose">×</button>
-              </div>
-
-              <div class="purchase-modal-content">
-                <div class="purchase-modal-head">
-                  <div class="purchase-modal-title">{{ tool?.toolName }}</div>
-                  <div class="purchase-modal-desc">{{ selectedPackage.packageName }} / {{ selectedPackage.useCount || 0 }} 次使用次数</div>
-                </div>
-
-                <div class="purchase-modal-block">
-                  <div class="purchase-modal-subtitle">支付方式</div>
-                  <div class="channel-grid">
-                    <button
-                      type="button"
-                      class="channel-card"
-                      :class="{ active: selectedChannel === 'wxpay' }"
-                      :disabled="!!paymentState.paymentNo"
-                      @click="selectedChannel = 'wxpay'"
-                    >
-                      <span class="channel-brand">
-                        <img :src="wechatPayIcon" alt="微信支付" class="channel-icon">
-                        <span>
-                          <span class="channel-name">微信支付</span>
-                          <span class="channel-tip">推荐扫码支付</span>
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="channel-card"
-                      :class="{ active: selectedChannel === 'alipay' }"
-                      :disabled="!!paymentState.paymentNo"
-                      @click="selectedChannel = 'alipay'"
-                    >
-                      <span class="channel-brand">
-                        <img :src="alipayPayIcon" alt="支付宝" class="channel-icon">
-                        <span>
-                          <span class="channel-name">支付宝</span>
-                          <span class="channel-tip">支持扫码支付</span>
-                        </span>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="purchase-modal-block compact">
-                  <div class="purchase-summary-row"><span>支付金额</span><strong>¥{{ selectedPackage.price }}</strong></div>
-                  <div v-if="Number(selectedPackage.payType) === 3" class="purchase-summary-row">
-                    <span>积分抵扣</span><strong>{{ selectedPackage.pointCost || 0 }} 积分</strong>
-                  </div>
-                  <div v-if="paymentState.expireTime && paymentState.payStatus !== '1'" class="purchase-summary-row">
-                    <span>关闭倒计时</span><strong>{{ paymentCountdownText }}</strong>
-                  </div>
-                  <div v-if="paymentState.paymentNo" class="purchase-summary-row">
-                    <span>支付状态</span><strong>{{ paymentStatusText }}</strong>
-                  </div>
-                </div>
-
-                <div class="purchase-qrcode-notice">
-                  <p>1. 支付成功后不支持退款，请确认需求后再支付。</p>
-                  <p>2. 如首次扫码后未完成支付，请重新点击“购买套餐”生成新订单后再支付。</p>
-                </div>
-
-                <div v-if="paymentState.payStatus === '3'" class="purchase-closed-banner">
-                  当前订单已关闭，请重新点击“购买套餐”生成新订单。
-                </div>
-
-                <div v-if="paymentState.qrcodeImage" class="purchase-qrcode-panel">
-                  <img :src="paymentState.qrcodeImage" alt="支付二维码" class="purchase-qrcode">
-                  <p class="purchase-qrcode-tip">请使用{{ selectedChannel === 'alipay' ? '支付宝' : '微信' }}扫码完成支付</p>
-                </div>
-
-                <div class="purchase-modal-actions">
-                  <button
-                    v-if="paymentState.paymentNo && !paymentCompleted"
-                    type="button"
-                    class="purchase-action-btn ghost danger"
-                    :disabled="cancelPaymentLoading"
-                    @click="handleCancelPayment"
-                  >
-                    {{ cancelPaymentLoading ? '关闭中...' : '关闭订单' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="purchase-action-btn primary"
-                    :disabled="!!paymentState.paymentNo || purchaseSubmitting"
-                    @click="submitPurchase"
-                  >
-                    {{ purchaseSubmitting ? '生成中...' : (paymentState.paymentNo ? '等待支付完成' : '生成支付二维码') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </teleport>
-      </ClientOnly>
     </main>
   </LoadingGroup>
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import QRCode from 'qrcode';
-import wechatPayIcon from '~/assets/images/payment/wechat-pay.svg';
-import alipayPayIcon from '~/assets/images/payment/alipay-pay.svg';
 import {
   apiCollectTool,
   apiRemoveCollectTool,
   apiToolDetail,
-  apiCreateToolPurchaseOrder,
-  apiCancelToolPurchaseOrder,
-  apiPayStatus,
 } from '~/composables/Api/Tool/tool';
 
 const route = useRoute();
@@ -275,8 +132,7 @@ const { message } = createDiscreteApi(['message']);
 
 const resourceTypeMap = {
   FREE: '免费',
-  CASH_ONLY: '付费',
-  CASH_POINT: '付费',
+  CASH_POINT: '消耗工具点数',
   VIP: 'VIP',
   SMALL_CLASS: '小班专属',
   INTERNAL: '内部',
@@ -305,58 +161,12 @@ watch(
 
 const tags = computed(() => tool.value?.tags || []);
 const resourceTypeLabel = computed(() => resourceTypeMap[tool.value?.resourceType] || tool.value?.resourceType || '免费');
-const isPaidTool = computed(() => ['CASH_ONLY', 'CASH_POINT'].includes(tool.value?.resourceType));
-const packages = computed(() => {
-  const list = tool.value?.packages;
-  if (!Array.isArray(list)) return [];
-  return [...list].sort((a, b) => Number(b.sortOrder || 0) - Number(a.sortOrder || 0));
-});
+const isPaidTool = computed(() => ['CASH_POINT'].includes(tool.value?.resourceType));
 const remainingCountText = computed(() => {
   const count = Number(tool.value?.remainingCount || 0);
   return count > 0 ? `${count} 次` : '0 次';
 });
 const purchasedStatusText = computed(() => Number(tool.value?.remainingCount || 0) > 0 ? '已购买' : '未购买');
-const purchaseModalVisible = ref(false);
-const selectedPackage = ref(null);
-const selectedChannel = ref('wxpay');
-const purchaseSubmitting = ref(false);
-const cancelPaymentLoading = ref(false);
-const paymentPollTimer = ref(null);
-const paymentCountdownTimer = ref(null);
-const paymentState = ref({
-  orderNo: '',
-  paymentNo: '',
-  qrcode: '',
-  qrcodeImage: '',
-  payUrl: '',
-  expireTime: '',
-  closeExpireMinutes: null,
-  remainingSeconds: 0,
-  payStatus: '',
-});
-const paymentCompleted = computed(() => paymentState.value.payStatus === '1');
-const paymentCountdownText = computed(() => {
-  if (paymentState.value.payStatus === '3') {
-    return '订单已关闭';
-  }
-  const totalSeconds = Number(paymentState.value.remainingSeconds || 0);
-  if (totalSeconds <= 0) {
-    return '--:--';
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-});
-const paymentStatusText = computed(() => {
-  const map = {
-    '': '待支付',
-    '0': '待支付',
-    '1': '支付成功',
-    '2': '支付失败',
-    '3': '已关闭',
-  };
-  return map[paymentState.value.payStatus] || '处理中';
-});
 
 function goBack() {
   navigateTo('/tool');
@@ -371,209 +181,6 @@ function startUseTool() {
       autoOpen: '1',
     },
   });
-}
-
-function handleBuyPackage(item) {
-  console.log('handleBuyPackage', item);
-  if (Number(item?.status) === 0) {
-    message.warning('该套餐已下架');
-    return;
-  }
-  selectedPackage.value = item;
-  selectedChannel.value = 'wxpay';
-  resetPaymentState();
-  purchaseModalVisible.value = true;
-  console.log('purchaseModalVisible :' , purchaseModalVisible.value)
-}
-
-function resetPaymentState() {
-  paymentState.value = {
-    orderNo: '',
-    paymentNo: '',
-    qrcode: '',
-    qrcodeImage: '',
-    payUrl: '',
-    expireTime: '',
-    closeExpireMinutes: null,
-    remainingSeconds: 0,
-    payStatus: '',
-  };
-}
-
-function closePurchaseModal() {
-  stopPaymentPolling();
-  stopPaymentCountdown();
-  purchaseModalVisible.value = false;
-  resetPaymentState();
-  selectedPackage.value = null;
-}
-
-async function submitPurchase() {
-  if (!tool.value || !selectedPackage.value) {
-    message.warning('请选择套餐');
-    return;
-  }
-  purchaseSubmitting.value = true;
-  try {
-    const res = await apiCreateToolPurchaseOrder({
-      toolId: Number(tool.value.id),
-      packageId: Number(selectedPackage.value.id),
-      payType: Number(selectedPackage.value.payType || 1),
-      channel: selectedChannel.value,
-    });
-    const data = (res && res.data) || res || {};
-    paymentState.value = {
-      orderNo: data.orderNo || '',
-      paymentNo: data.paymentNo || '',
-      qrcode: data.payment?.qrcode || '',
-      qrcodeImage: '',
-      payUrl: data.payment?.payUrl || '',
-      expireTime: data.expireTime || '',
-      closeExpireMinutes: data.closeExpireMinutes ?? null,
-      remainingSeconds: 0,
-      payStatus: data.payStatus || '0',
-    };
-    await buildPaymentQrCodeImage();
-    if (paymentState.value.payUrl) {
-      window.open(paymentState.value.payUrl, '_blank');
-    }
-    startPaymentCountdown();
-    startPaymentPolling();
-    message.success('订单创建成功，请完成支付');
-  } catch (e) {
-    message.error(e?.message || e?.data?.msg || '创建订单失败');
-  } finally {
-    purchaseSubmitting.value = false;
-  }
-}
-
-async function buildPaymentQrCodeImage() {
-  const rawPayUrl = paymentState.value.payUrl;
-  const rawQrcode = paymentState.value.qrcode;
-  const qrContent = rawPayUrl || rawQrcode;
-  if (!qrContent) return;
-  try {
-    if (String(qrContent).startsWith('data:image')) {
-      paymentState.value.qrcodeImage = qrContent;
-      return;
-    }
-    paymentState.value.qrcodeImage = await QRCode.toDataURL(String(qrContent), {
-      width: 220,
-      margin: 1,
-    });
-  } catch (e) {
-    console.error('二维码生成失败', e, {
-      payUrl: rawPayUrl,
-      qrcode: rawQrcode,
-    });
-    paymentState.value.qrcodeImage = '';
-    message.error('支付二维码生成失败');
-  }
-}
-
-function stopPaymentPolling() {
-  if (paymentPollTimer.value) {
-    clearInterval(paymentPollTimer.value);
-    paymentPollTimer.value = null;
-  }
-}
-
-function stopPaymentCountdown() {
-  if (paymentCountdownTimer.value) {
-    clearInterval(paymentCountdownTimer.value);
-    paymentCountdownTimer.value = null;
-  }
-}
-
-function syncPaymentRemainingSeconds() {
-  const expireTime = paymentState.value.expireTime;
-  if (!expireTime) {
-    const minutes = Number(paymentState.value.closeExpireMinutes || 0);
-    paymentState.value.remainingSeconds = minutes > 0 ? minutes * 60 : 0;
-    return;
-  }
-  const deadline = new Date(String(expireTime).replace(' ', 'T')).getTime();
-  if (Number.isNaN(deadline)) {
-    const minutes = Number(paymentState.value.closeExpireMinutes || 0);
-    paymentState.value.remainingSeconds = minutes > 0 ? minutes * 60 : 0;
-    return;
-  }
-  paymentState.value.remainingSeconds = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-}
-
-function markPaymentClosedByTimeout() {
-  paymentState.value.remainingSeconds = 0;
-  paymentState.value.payStatus = '3';
-  stopPaymentPolling();
-  stopPaymentCountdown();
-}
-
-function startPaymentCountdown() {
-  stopPaymentCountdown();
-  syncPaymentRemainingSeconds();
-  if (paymentState.value.remainingSeconds <= 0) {
-    if (paymentState.value.paymentNo && paymentState.value.payStatus !== '1') {
-      markPaymentClosedByTimeout();
-    }
-    return;
-  }
-  paymentCountdownTimer.value = setInterval(() => {
-    syncPaymentRemainingSeconds();
-    if (paymentState.value.remainingSeconds <= 0) {
-      markPaymentClosedByTimeout();
-    }
-  }, 1000);
-}
-
-function startPaymentPolling() {
-  stopPaymentPolling();
-  if (!paymentState.value.orderNo) return;
-  paymentPollTimer.value = setInterval(async () => {
-    try {
-      const res = await apiPayStatus(paymentState.value.orderNo);
-      const data = (res && res.data) || res || {};
-      if (data.payStatus === true || String(data.paymentStatus) === '1' || String(data.orderStatus) === '1') {
-        paymentState.value.payStatus = '1';
-        stopPaymentPolling();
-        stopPaymentCountdown();
-        message.success('支付成功，额度已到账');
-        await refreshNuxtData(`tool-detail-${route.params.id}`);
-        closePurchaseModal();
-        return;
-      }
-      if (String(data.paymentStatus) === '3' || String(data.orderStatus) === '2') {
-        paymentState.value.payStatus = '3';
-        stopPaymentPolling();
-        stopPaymentCountdown();
-        paymentState.value.remainingSeconds = 0;
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, 3000);
-}
-
-async function handleCancelPayment() {
-  if (!paymentState.value.orderNo) return;
-  cancelPaymentLoading.value = true;
-  try {
-    await apiCancelToolPurchaseOrder(paymentState.value.orderNo);
-    paymentState.value.payStatus = '3';
-    stopPaymentPolling();
-    stopPaymentCountdown();
-    paymentState.value.remainingSeconds = 0;
-    await refreshNuxtData(`tool-detail-${route.params.id}`);
-    message.success('订单已关闭');
-    closePurchaseModal();
-  } catch (e) {
-    message.error(e?.message || e?.data?.msg || '关闭订单失败');
-  } finally {
-    cancelPaymentLoading.value = false;
-  }
-}
-
-function handlePurchaseModalClose() {
-  closePurchaseModal();
 }
 
 async function toggleFavorite() {
@@ -603,11 +210,6 @@ async function toggleFavorite() {
 useHead(() => ({
   title: tool.value?.toolName ? `${tool.value.toolName} - 工具详情` : '工具详情',
 }));
-
-onBeforeUnmount(() => {
-  stopPaymentPolling();
-  stopPaymentCountdown();
-});
 </script>
 
 <style scoped>
