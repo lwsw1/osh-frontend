@@ -120,7 +120,8 @@
                                     下载资源
                                 </n-tooltip>
                                 <!-- 其他类型显示查看链接按钮 -->
-                                <n-tooltip v-else trigger="hover" placement="top">
+                                 <!-- 
+                                              <n-tooltip v-else trigger="hover" placement="top">
                                     <template #trigger>
                                         <n-button 
                                             size="small" 
@@ -135,6 +136,8 @@
                                     </template>
                                     查看链接
                                 </n-tooltip>
+                                
+                                 -->
                             </div>
                         </div>
                     </div>

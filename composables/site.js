@@ -1,8 +1,7 @@
 // 获取内部网站列表
 export function useSiteInfoListApi(query = {}) {
-    const q = useQueryToString(query)
-    return useHttpGet("SiteInfoList", `/site/list${q}`, {
-        $: true
+    return useHttpPost("SiteInfoList", `/site/list`, {
+        body: query,
     })
 }
 

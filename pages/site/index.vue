@@ -8,10 +8,9 @@
         </div>
         <!-- 页面头部 -->
         <div class="site-header">
-            <h2 class="site-title">内部网站</h2>
             <div class="site-header-actions">
                 <n-input v-model:value="searchForm.siteName" placeholder="搜索网站名称" clearable
-                    style="width: 200px; margin-right: 8px;" @keyup.enter="handleSearch">
+                    style="width: 500px; margin-right: 8px;" @keyup.enter="handleSearch">
                     <template #prefix>
                         <n-icon>
                             <Search />
@@ -19,9 +18,11 @@
                     </template>
                 </n-input>
                 <n-select v-model:value="searchForm.status" placeholder="状态筛选" :options="statusOptions" clearable
-                    style="width: 120px; margin-right: 8px;" @update:value="handleSearch" />
+                    @update:value="handleSearch" />
                 <n-select v-model:value="searchForm.siteType" placeholder="网站类型" :options="siteTypeOptions" clearable
-                    style="width: 140px; margin-right: 8px;" @update:value="handleSearch" />
+                    @update:value="handleSearch" />
+
+                <resource-selector :model-value="searchForm.resourceFilters" @update:model-value="handleResourcesFilterUpdated"/>
                 <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">
                                         <template #icon><n-icon>
                         <n-tooltip trigger="hover">
@@ -323,8 +324,13 @@ function handleCoverUploaded(file) {
 }
 
 function handleRelatedResourcesUpdated(value) {
-    console.log('更新后的相关资源ID列表：', value)
     formData.relatedResources = value
+}
+
+function handleResourcesFilterUpdated(value) {
+    searchForm.resourceFilters = value.map(res => {
+        return res[0] + '|' + res[1]
+    })
 }
 
 function handlemaintainerUserIdsUpdated(value) {
@@ -349,6 +355,7 @@ const searchForm = reactive({
     siteName: '',
     status: null,
     siteType: null,
+    resourceFilters: [], // 资源筛选条件
 })
 
 // 弹窗
@@ -458,7 +465,9 @@ async function loadList() {
         if (searchForm.siteName) query.siteName = searchForm.siteName
         if (searchForm.status !== null) query.status = searchForm.status
         if (searchForm.siteType) query.siteType = searchForm.siteType
-
+        if (searchForm.resourceFilters.length > 0) {
+            query.resourceFilters = searchForm.resourceFilters
+        }
         const { data } = await useSiteInfoListApi(query)
         if (data.value ) {
             const sites = data.value.rows || []
