@@ -19,7 +19,7 @@
       <template v-else>
         <CourseDetailMarketing
           :data="courseData"
-          :is-paid="isPaid"
+          :is-paid="canLearn"
           @pay="goToPayPage"
           @refresh="handleRefreshCourse"
         />
@@ -34,28 +34,70 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { createDiscreteApi } from 'naive-ui';
 import CoursePay from '@/components/Course/CoursePay.vue';
+import { fetchConfig } from '~/composables/useHttp';
+import { getAuthHeaders, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+
 const route = useRoute();
+const router = useRouter();
+const { message } = createDiscreteApi(['message']);
 const courseId = route.params.id;
 
-// --- 第一步：先声明所有响应式变量 ---
 const courseData = ref(null);
-const isPaid = ref(false);
 const isPayingView = ref(false);
 
-// 点击立即学习：跳转到支付视图
-const goToPayPage = () => {
-  isPayingView.value = true;
+/** 已购买或后端判定 FULL（VIP/小班/创始人/免费课等）均可直接学习 */
+function hasCourseAccess(detail) {
+  if (!detail) return false;
+  return detail.buyFlag === 1 || detail.accessLevel === 'FULL';
+}
+
+const canLearn = computed(() => hasCourseAccess(courseData.value));
+
+async function findFirstPlayableSectionId(cid, accessLevel) {
+  const res = await $fetch(`/course/section/outline/${cid}`, {
+    baseURL: fetchConfig.baseURL,
+    headers: getAuthHeaders(),
+  });
+  if (res?.code !== 200 || !Array.isArray(res.data)) return null;
+  const fullAccess = accessLevel === 'FULL';
+  for (const ch of res.data) {
+    for (const s of ch.children || ch.sections || []) {
+      if (fullAccess || normalizeSectionFreeFlag(s.freeFlag) === 1) {
+        return s.id;
+      }
+    }
+  }
+  return null;
+}
+
+// 立即学习：有权限进学习中心，否则进支付页
+const goToPayPage = async () => {
+  if (!hasCourseAccess(courseData.value)) {
+    isPayingView.value = true;
+    return;
+  }
+  try {
+    const sectionId = await findFirstPlayableSectionId(
+      courseId,
+      courseData.value?.accessLevel || 'TRIAL',
+    );
+    if (sectionId) {
+      router.push(`/course_detail/${courseId}?sectionId=${sectionId}`);
+      return;
+    }
+    message.warning('课程暂无可用小节');
+  } catch {
+    message.error('加载课程目录失败，请稍后重试');
+  }
 };
-// --- 第二步：发起异步请求 ---
+
 const { data, pending, error, refresh } = await useCourseDetailApi(courseId);
 
-// ✅ 正确写法（你的 useHttp 已经 transform 过了）
 if (data.value) {
   courseData.value = data.value;
-  isPaid.value = data.value.buyFlag === 1;
-
   console.log('✅ 成功抓取到数据:', courseData.value.title);
 } else {
   console.error('❌ 接口没数据', data.value);
@@ -69,19 +111,19 @@ const handleRefreshCourse = async () => {
   await refresh();
   if (data.value) {
     courseData.value = { ...data.value };
-    isPaid.value = data.value.buyFlag === 1;
   }
 };
 
-// CoursePay 内部已完成"二维码 + 轮询"全流程，命中支付成功后会 emit('paid')。
-// 这里只负责把视图切回详情，并刷新课程数据以拿到后端最新的 buyFlag。
+// CoursePay 支付成功后刷新详情，canLearn 会随 buyFlag / accessLevel 自动更新
 const handlePaid = async () => {
-  isPaid.value = true;
   isPayingView.value = false;
   try {
     await refresh();
+    if (data.value) {
+      courseData.value = { ...data.value };
+    }
   } catch (e) {
-    // refresh 失败不阻塞解锁，下次进页面会自动重新拉取
+    // refresh 失败不阻塞，下次进页面会自动重新拉取
   }
 };
 
@@ -96,7 +138,6 @@ watch(
   (newVal) => {
     if (newVal) {
       courseData.value = newVal;
-      isPaid.value = newVal.buyFlag === 1;
     }
   },
   { immediate: true }

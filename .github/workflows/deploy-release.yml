@@ -15,7 +15,9 @@ env:
   DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST || '43.242.200.25' }}
   DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER || 'root' }}
   DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT || '58753' }}
-  DEPLOY_PATH: ${{ vars.FRONTEND_DEPLOY_PATH || '/www/nginx/html' }}
+  # Docker osh-nginx mounts this path; /www/nginx/html is legacy staging only.
+  DEPLOY_PATH: ${{ vars.FRONTEND_DEPLOY_PATH || '/opt/osh/app/osh/osh-frontend/html' }}
+  LEGACY_STAGING_PATH: ${{ vars.FRONTEND_LEGACY_STAGING_PATH || '/www/nginx/html' }}
   NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL || vars.NOTIFY_EMAIL || '1402272093@qq.com' }}
   MAIL_USERNAME: ${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME || '1402272093@qq.com' }}
   MAIL_SERVER: ${{ vars.MAIL_SERVER || 'smtp.qq.com' }}
@@ -94,6 +96,15 @@ jobs:
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
             .output/public/ \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Mirror to legacy staging directory
+        if: github.event_name != 'push' || github.ref_name == steps.latest_release.outputs.latest_branch
+        run: |
+          if [ "$DEPLOY_PATH" != "$LEGACY_STAGING_PATH" ]; then
+            ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "mkdir -p '$LEGACY_STAGING_PATH' && rsync -az --delete --exclude='.user.ini' '$DEPLOY_PATH/' '$LEGACY_STAGING_PATH/'"
+          fi
 
       - name: Notify on success
         if: success() && (github.event_name != 'push' || github.ref_name == steps.latest_release.outputs.latest_branch)

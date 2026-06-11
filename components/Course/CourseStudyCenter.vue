@@ -16,8 +16,8 @@
       </div>
     </div>
 
-    <!-- 主体：左侧视频 + 右侧面板 -->
-    <div class="study-body">
+    <!-- 主体：左侧视频 + 右侧课程目录（可收起） -->
+    <div class="study-body" :class="{ 'sidebar-collapsed': !sidebarExpanded }">
       <!-- 左侧：视频播放器 -->
       <div class="video-col">
         <!-- 播放器 -->
@@ -74,25 +74,18 @@
         </div>
       </div>
 
-      <!-- 右侧：章节目录 + 资料 -->
-      <div class="sidebar-col">
-        <!-- 资料下载（折叠） -->
-        <div class="sidebar-section">
-          <div class="sidebar-header" @click="toggleMaterials">
-            <span class="sidebar-title">📦 课程资料</span>
-            <span class="sidebar-toggle">{{ showMaterials ? '▲' : '▼' }}</span>
-          </div>
-          <div v-if="showMaterials" class="mat-list">
-            <div v-if="materialsLoading" class="mat-tip">加载中...</div>
-            <div v-else-if="materials.length === 0" class="mat-tip">暂无资料</div>
-            <div v-for="mat in materials" :key="mat.id" class="mat-row">
-              <span class="mat-icon">📄</span>
-              <span class="mat-name">{{ mat.materialName || mat.name }}</span>
-              <button class="mat-dl" @click="downloadMat(mat)">下载</button>
-            </div>
-          </div>
-        </div>
+      <!-- 课程目录展开/收起：固定贴右同一位置，展开与收起共用同一把手 -->
+      <button
+        class="sidebar-toggle-btn"
+        :title="sidebarExpanded ? '收起课程目录' : '展开课程目录'"
+        @click="sidebarExpanded = !sidebarExpanded"
+      >
+        <span class="toggle-icon">{{ sidebarExpanded ? '›' : '‹' }}</span>
+        <span class="tab-text">目录</span>
+      </button>
 
+      <!-- 右侧：章节目录 -->
+      <div class="sidebar-col" :class="{ collapsed: !sidebarExpanded }">
         <!-- 章节目录 -->
         <div class="sidebar-section outline-section">
           <div class="sidebar-header-static">
@@ -151,7 +144,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiGetMaterialUrl, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiGetVideoUrls, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
 import CourseQuestionPanel from '~/components/Course/CourseQuestionPanel.vue';
 import { renderCourseDoc, extractCourseDocImageSrcs, replaceCourseDocImageSrc } from '~/composables/useCourseDoc';
 
@@ -177,6 +170,7 @@ function mapOutlineSection(section, chapterId) {
 function isSectionFreePreview(section) {
   return normalizeSectionFreeFlag(section?.freeFlag) === 1;
 }
+const route = useRoute();
 const router = useRouter();
 const courseId = computed(() => props.data?.id || route.params.id);
 
@@ -309,7 +303,7 @@ async function loadOutline() {
         for (const ch of outline.value) {
           const found = (ch.children || []).find(s => String(s.id) === targetId);
           if (found) {
-            selectSection(found);
+            await selectSection(found);
             return;
           }
         }
@@ -320,7 +314,7 @@ async function loadOutline() {
         for (const s of ch.children || []) {
           if (s.mediaUrl && !s.mediaUrl.includes('pending')) {
             if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
-              selectSection(s);
+              await selectSection(s);
               return;
             }
           }
@@ -330,27 +324,54 @@ async function loadOutline() {
       for (const ch of outline.value) {
         for (const s of ch.children || []) {
           if (accessLevel.value === 'FULL' || isSectionFreePreview(s)) {
-            selectSection(s);
+            await selectSection(s);
             return;
           }
         }
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[CourseStudyCenter] loadOutline failed', err);
+  }
   finally { outlineLoading.value = false; }
 }
 
-function selectSection(section) {
+function resolveSignedVideoUrl(section, urlMap) {
+  if (!section?.id || !urlMap) return '';
+  const key = section.id;
+  return urlMap[key] || urlMap[String(key)] || '';
+}
+
+async function loadSectionVideoUrl(section) {
+  const outlineUrl = section?.mediaUrl && !section.mediaUrl.includes('pending') ? section.mediaUrl : '';
+  if (outlineUrl && /^https?:\/\//i.test(outlineUrl)) {
+    return outlineUrl;
+  }
+  if (!section?.id) return outlineUrl;
+  try {
+    const urlRes = await apiGetVideoUrls(section.id, 60);
+    if (urlRes?.code === 200 && urlRes.data) {
+      const signed = resolveSignedVideoUrl(section, urlRes.data);
+      if (signed && !signed.includes('pending')) {
+        return signed;
+      }
+    }
+  } catch (err) {
+    console.warn('[CourseStudyCenter] loadSectionVideoUrl failed', err);
+  }
+  return outlineUrl;
+}
+
+async function selectSection(section) {
   // TRIAL 模式下，非免费章节拦截
   if (accessLevel.value === 'TRIAL' && !isSectionFreePreview(section)) {
     showLockedTip();
     return;
   }
   currentSection.value = section;
-  currentVideoUrl.value = section.mediaUrl && !section.mediaUrl.includes('pending')
-    ? section.mediaUrl : '';
+  currentVideoUrl.value = await loadSectionVideoUrl(section);
   // 先用大纲快照回显，再按 section/content 接口拉最新文档内容覆盖。
-  renderAndRefreshDoc(section.textContent || '');
+  await renderAndRefreshDoc(section.textContent || '');
   if (String(section.sectionType || section.type || '').toLowerCase() === 'text') {
     refreshSectionDocContent(section.id);
   }
@@ -397,37 +418,12 @@ function onVideoEnded() {
   }
 }
 
-// ===== 资料 =====
-const showMaterials = ref(false);
-const materials = ref([]);
-const materialsLoading = ref(false);
-
-async function toggleMaterials() {
-  showMaterials.value = !showMaterials.value;
-  if (showMaterials.value && materials.value.length === 0) {
-    materialsLoading.value = true;
-    try {
-      const res = await $fetch(`/course/${courseId.value}/materials`, {
-        baseURL: fetchConfig.baseURL,
-        headers: getAuthHeaders(),
-      });
-      if (res?.code === 200) materials.value = res.data || [];
-    } catch {}
-    finally { materialsLoading.value = false; }
-  }
-}
-
-async function downloadMat(mat) {
-  const id = mat.id || mat.materialId;
-  if (!id) { window.open(mat.fileUrl || mat.url, '_blank'); return; }
-  try {
-    const res = await apiGetMaterialUrl(id, 120);
-    window.open(res?.code === 200 && res.data ? res.data : (mat.fileUrl || mat.url), '_blank');
-  } catch { window.open(mat.fileUrl || mat.url, '_blank'); }
-}
-
 // ===== 问题面板开关 =====
 const showQaPanel = ref(false);
+
+// ===== 课程目录侧栏展开/收起 =====
+// 展开：右侧显示章节目录；收起：目录滑到右侧不占位，视频与文档区域占满宽度
+const sidebarExpanded = ref(true);
 
 // ===== 工具 =====
 function fmtDuration(sec) {
@@ -488,16 +484,18 @@ onMounted(loadOutline);
   gap: 18px;
   padding: 18px 18px 24px;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ===== 左侧视频区 ===== */
 .video-col {
-  flex: 4;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow-y: auto;
   scrollbar-width: none;
+  transition: flex 0.28s ease;
 }
 .video-col::-webkit-scrollbar { display: none; }
 
@@ -670,9 +668,8 @@ onMounted(loadOutline);
 
 /* ===== 右侧侧边栏 ===== */
 .sidebar-col {
-  flex: 1;
-  min-width: 260px;
-  max-width: 320px;
+  flex: 0 0 300px;
+  width: 300px;
   background: rgba(18, 21, 29, 0.94);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 20px;
@@ -681,6 +678,63 @@ onMounted(loadOutline);
   overflow: hidden;
   box-shadow: 0 20px 48px rgba(0,0,0,0.24);
   backdrop-filter: blur(14px);
+  transition: width 0.28s ease, flex-basis 0.28s ease, opacity 0.28s ease, transform 0.28s ease;
+}
+
+/* 收起：目录滑到右侧，不再占据布局空间 */
+.sidebar-col.collapsed {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(24px);
+  overflow: hidden;
+  border-width: 0;
+  pointer-events: none;
+}
+
+/* 目录把手：始终贴右、固定纵向位置，与标题栏同一高度 */
+.sidebar-toggle-btn {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: none;
+  border-radius: 14px 0 0 14px;
+  background: rgba(18, 21, 29, 0.96);
+  color: #d7e1ee;
+  cursor: pointer;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.28);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.sidebar-toggle-btn:hover {
+  background: rgba(24, 160, 88, 0.18);
+  color: #66db9f;
+}
+.toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+}
+.tab-text {
+  font-size: 12px;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+}
+
+/* 目录收起后，视频与文档区域放宽到全宽 */
+.study-body.sidebar-collapsed .player-box,
+.study-body.sidebar-collapsed .video-info-bar,
+.study-body.sidebar-collapsed .doc-panel-wrap,
+.study-body.sidebar-collapsed .qa-panel-wrap {
+  width: 100%;
+  max-width: none;
 }
 
 .sidebar-section {
@@ -717,26 +771,15 @@ onMounted(loadOutline);
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+/* 展开时给标题栏留出手把宽度，避免与「X 节」重叠 */
+.study-body:not(.sidebar-collapsed) .sidebar-header-static {
+  padding-right: 48px;
+}
 .sidebar-title { font-size: 13px; font-weight: 700; color: #d7e1ee; }
 .sidebar-toggle { font-size: 10px; color: #6f7c8f; }
 .section-count { font-size: 12px; color: #6f7c8f; }
 
-/* 资料列表 */
-.mat-list { padding: 8px 12px 12px; }
 .mat-tip { font-size: 12px; color: #555; padding: 8px 4px; }
-.mat-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 4px; border-bottom: 1px solid #1e1e1e;
-}
-.mat-row:last-child { border-bottom: none; }
-.mat-icon { font-size: 14px; flex-shrink: 0; }
-.mat-name { flex: 1; font-size: 12px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mat-dl {
-  background: none; border: 1px solid #18a058; color: #18a058;
-  border-radius: 3px; padding: 2px 8px; font-size: 11px; cursor: pointer;
-  flex-shrink: 0; transition: all 0.15s;
-}
-.mat-dl:hover { background: #18a058; color: #fff; }
 
 /* 章节目录 */
 .outline-list { overflow-y: auto; }
@@ -815,7 +858,8 @@ onMounted(loadOutline);
   }
 
   .sidebar-col {
-    min-width: 280px;
+    flex-basis: 280px;
+    width: 280px;
   }
 }
 
@@ -826,8 +870,12 @@ onMounted(loadOutline);
   }
 
   .sidebar-col {
-    max-width: none;
-    min-width: 0;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .sidebar-col.collapsed {
+    display: none;
   }
 }
 </style>

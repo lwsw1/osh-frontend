@@ -1,9 +1,13 @@
 <template>
   <section class="book-search-panel">
-    <div class="hero-copy">
-      <p class="hero-label">Curated Ebooks</p>
-      <h2>电子书书库</h2>
-      <p>按课程模块的使用方式重做了查询体验，支持关键词、标签、权限等级和排序的组合筛选。</p>
+    <div class="panel-heading">
+      <div class="heading-icon">
+        <n-icon :component="BookOutline" />
+      </div>
+      <div>
+        <h1>电子书</h1>
+        <p>精选技术读物与实战手册</p>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -50,18 +54,30 @@
       </div>
 
       <div class="toolbar-actions">
-        <button class="ghost-btn" @click="resetSearch">重置</button>
-        <button class="submit-btn" @click="submitSearch">搜索</button>
-        <button v-if="canCreateBook" class="primary-btn" @click="goToCreate">新增电子书</button>
+        <button class="ghost-btn" @click="resetSearch">
+          <n-icon :component="RefreshOutline" />
+          <span>重置</span>
+        </button>
+        <button class="submit-btn" @click="submitSearch">
+          <n-icon :component="SearchOutline" />
+          <span>搜索</span>
+        </button>
+        <button v-if="canCreateBook" class="primary-btn" @click="goToCreate">
+          <n-icon :component="AddOutline" />
+          <span>新增电子书</span>
+        </button>
       </div>
     </div>
 
     <div class="action-row">
+      <span class="quick-label">快捷筛选</span>
       <div class="chip-row">
         <button
           v-for="item in quickFilters"
           :key="item.label"
           class="quick-chip"
+          :class="{ active: isQuickFilterActive(item) }"
+          :aria-pressed="isQuickFilterActive(item)"
           @click="applyQuickFilter(item)"
         >
           {{ item.label }}
@@ -73,8 +89,10 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { NInput, NSelect } from 'naive-ui'
+import { NIcon, NInput, NSelect } from 'naive-ui'
+import { AddOutline, BookOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 import { apiGetBookTags } from '~/composables/Api/Book/book'
+import { BOOK_LEVEL_FILTER_OPTIONS } from '~/composables/bookLevels'
 
 const props = defineProps({
   canCreateBook: {
@@ -88,19 +106,13 @@ const emit = defineEmits(['search'])
 const draft = reactive({
   keyword: '',
   tagNameList: [],
-  level: null,
+  level: 'all',
   sortType: null,
 })
 
 const tagOptions = ref([])
 
-const levelOptions = [
-  { label: '1 级权限', value: 1 },
-  { label: '2 级权限', value: 2 },
-  { label: '3 级权限', value: 3 },
-  { label: '4 级权限', value: 4 },
-  { label: '5 级权限', value: 5 },
-]
+const levelOptions = BOOK_LEVEL_FILTER_OPTIONS
 
 const sortOptions = [
   { label: '默认推荐', value: 'default' },
@@ -112,7 +124,7 @@ const sortOptions = [
 
 const quickFilters = [
   { label: '免费优先', patch: { sortType: 'priceAsc' } },
-  { label: '3级及以上', patch: { level: 3 } },
+  { label: 'VIP', patch: { level: 3 } },
   { label: '最近上新', patch: { sortType: 'latest' } },
 ]
 
@@ -135,7 +147,7 @@ function submitSearch() {
     keyword: draft.keyword.trim(),
     title: draft.keyword.trim(),
     tagNameList: [...draft.tagNameList],
-    level: draft.level,
+    level: draft.level === 'all' ? null : draft.level,
     sortType: draft.sortType || 'default',
   })
 }
@@ -143,7 +155,7 @@ function submitSearch() {
 function resetSearch() {
   draft.keyword = ''
   draft.tagNameList = []
-  draft.level = null
+  draft.level = 'all'
   draft.sortType = null
   submitSearch()
 }
@@ -153,6 +165,10 @@ function applyQuickFilter(item) {
   submitSearch()
 }
 
+function isQuickFilterActive(item) {
+  return Object.entries(item.patch).every(([key, value]) => draft[key] === value)
+}
+
 function goToCreate() {
   navigateTo('/book/CreateBook')
 }
@@ -160,56 +176,56 @@ function goToCreate() {
 
 <style scoped>
 .book-search-panel {
-  position: relative;
-  overflow: hidden;
-  padding: 28px;
-  border-radius: 32px;
-  background:
-    radial-gradient(circle at top right, rgba(255, 201, 98, 0.32), transparent 30%),
-    radial-gradient(circle at left center, rgba(0, 184, 148, 0.18), transparent 36%),
-    linear-gradient(140deg, #fffdf8 0%, #f3f6ff 48%, #eefaf7 100%);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 28px 70px rgba(28, 45, 84, 0.12);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-top: 3px solid #4f46e5;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
 }
 
-.hero-copy {
-  max-width: 760px;
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.hero-label {
-  margin: 0 0 10px;
-  color: #0f766e;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  font-size: 11px;
-  font-weight: 700;
+.heading-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 22px;
 }
 
-.hero-copy h2 {
+.panel-heading h1 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 40px);
-  line-height: 1.08;
-  color: #10213a;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1.25;
 }
 
-.hero-copy p:last-child {
-  margin: 12px 0 0;
-  color: #4b5563;
-  line-height: 1.8;
+.panel-heading p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .toolbar {
-  margin-top: 24px;
+  margin-top: 22px;
   display: flex;
   align-items: end;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .inline-field {
@@ -226,9 +242,9 @@ function goToCreate() {
 }
 
 .field-group label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #334155;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .submit-btn,
@@ -239,67 +255,105 @@ function goToCreate() {
   font: inherit;
 }
 
-.submit-btn {
-  padding: 12px 20px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #082f49 0%, #0f766e 100%);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 auto;
 }
 
+.toolbar-actions button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.submit-btn {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.submit-btn:hover {
+  background: #4338ca;
+}
+
 .action-row {
-  margin-top: 22px;
+  margin-top: 16px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 18px;
+  gap: 12px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 14px;
+}
+
+.quick-label {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .quick-chip {
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(15, 118, 110, 0.08);
-  color: #0f766e;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-chip:hover,
+.quick-chip.active {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+  color: #4338ca;
 }
 
 .ghost-btn,
 .primary-btn {
-  padding: 12px 18px;
-  border-radius: 16px;
-  font-weight: 700;
-  cursor: pointer;
+  border: 1px solid #e2e8f0;
 }
 
 .ghost-btn {
-  background: rgba(148, 163, 184, 0.12);
-  color: #334155;
+  background: #ffffff;
+  color: #475569;
+}
+
+.ghost-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #ff9f4a 0%, #ff6b6b 100%);
-  color: #fff;
-  box-shadow: 0 14px 30px rgba(255, 107, 107, 0.25);
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.primary-btn:hover {
+  border-color: #115e59;
+  background: #115e59;
 }
 
 @media (max-width: 960px) {
   .book-search-panel {
-    padding: 22px;
-    border-radius: 24px;
+    padding: 20px;
   }
 
   .toolbar {
@@ -307,9 +361,15 @@ function goToCreate() {
     align-items: stretch;
   }
 
+  .inline-field,
+  .keyword-group,
+  .small-field {
+    flex: none;
+    width: 100%;
+  }
+
   .action-row {
-    flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
   }
 
   .toolbar-actions {
@@ -323,7 +383,11 @@ function goToCreate() {
 }
 
 @media (max-width: 640px) {
-  .toolbar-actions {
+  .book-search-panel {
+    padding: 16px;
+  }
+
+  .action-row {
     flex-direction: column;
   }
 }

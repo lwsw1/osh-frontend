@@ -1,6 +1,14 @@
 <template>
     <LoadingGroup :pending="pending" :error="error">
         <template v-if="data">
+        <div class="detail-page" :class="{ 'book-detail-page': type === 'book' }">
+        <nav v-if="type === 'book'" class="detail-breadcrumb" aria-label="面包屑">
+            <nuxt-link to="/">首页</nuxt-link>
+            <n-icon :component="ChevronForwardOutline" />
+            <nuxt-link to="/list/book/1">电子书</nuxt-link>
+            <n-icon :component="ChevronForwardOutline" />
+            <span>{{ data.title }}</span>
+        </nav>
 
         <section class="py-4" v-if="data.isbuy && ((data.type != 'media' && type=='course') || type == 'live')">
             <ClientOnly>
@@ -15,25 +23,43 @@
             </ClientOnly>
         </section>
 
-        <section v-else class="detail-top">
+        <section v-else class="detail-top" :class="{ 'book-hero': type === 'book' }">
             <div class="book-cover-container" v-if="type == 'book'">
                 <img :src="data.cover" class="book-cover-large" />
                 <div class="book-badge" v-if="data.price == 0">免费</div>
+                <div class="book-badge paid" v-else>付费</div>
             </div>
             <n-image v-else :src="data.cover" object-fit="cover" class="image"/>
-            
+
             <div class="info">
                 <div class="flex flex-col items-start">
+                    <div v-if="type === 'book'" class="book-eyebrow">
+                        <n-icon :component="BookOutline" />
+                        <span>电子书</span>
+                        <span class="eyebrow-divider"></span>
+                        <span>{{ bookLevelLabel(data.level) }}</span>
+                        <span v-if="data.isbuy" class="owned-badge">已获得</span>
+                    </div>
                     <div class="book-header">
                         <h1 class="book-title">{{ data.title }}</h1>
                         <FavaBtn :isfava="data.isfava" :goods_id="data.id" :type="type"/>
                     </div>
+                    <p v-if="type === 'book'" class="book-summary">
+                        {{ data.desc || data.description || '暂无内容简介' }}
+                    </p>
                     <div class="book-meta">
                         <span class="meta-item">
                             <n-icon size="16"><PeopleOutline /></n-icon>
-                            {{ data.sub_count || 0 }}人学过
+                            {{ data.sub_count || data.purchaseCount || 0 }} 人阅读
                         </span>
-                        <span class="meta-divider">|</span>
+                        <span v-if="type === 'book'" class="meta-item">
+                            <n-icon size="16"><ListOutline /></n-icon>
+                            {{ bookChapterCount }} 个章节
+                        </span>
+                        <span v-if="type === 'book'" class="meta-item">
+                            <n-icon size="16"><ShieldCheckmarkOutline /></n-icon>
+                            {{ bookLevelLabel(data.level) }}
+                        </span>
                         <span class="meta-item" v-if="type === 'course'">
                             【{{ o[data.type] }}】
                         </span>
@@ -93,8 +119,8 @@
             </div>
         </section>
 
-        <n-grid :x-gap="20">
-            <n-grid-item :span="18">
+        <n-grid :x-gap="20" class="detail-layout">
+            <n-grid-item :span="18" class="detail-main">
                 <DetailGroupworks v-if="!data.isbuy && data.group" :group_id="data.group.id"/>
 
                 <section class="detail-bottom">
@@ -113,10 +139,11 @@
                 </section>
                 <BookQuestionPanel v-if="type == 'book' && data?.id" :book-id="data.id" class="book-qna-block" />
             </n-grid-item>
-            <n-grid-item :span="6">
+            <n-grid-item :span="6" class="detail-aside">
                 <HotCourseList/>
             </n-grid-item>
         </n-grid>
+        </div>
         </template>
     </LoadingGroup>
 
@@ -145,8 +172,8 @@
                 </div>
                 <div class="book-pay-points-row">
                     <NCheckbox
-                        v-model:checked="useBookPoints"
-                        :disabled="isPayChannelLocked || payLoading || userPoints <= 0"
+                        :checked="useBookPoints"
+                        disabled
                     >
                         使用积分抵扣
                     </NCheckbox>
@@ -214,8 +241,17 @@
         NRadioGroup,
         createDiscreteApi,
     } from "naive-ui"
-    import { CreateOutline, PeopleOutline, BookOutline, EyeOutline } from '@vicons/ionicons5'
+    import {
+        BookOutline,
+        ChevronForwardOutline,
+        CreateOutline,
+        EyeOutline,
+        ListOutline,
+        PeopleOutline,
+        ShieldCheckmarkOutline,
+    } from '@vicons/ionicons5'
     import { fetchConfig } from '~/composables/useHttp'
+    import { bookLevelLabel } from '~/composables/bookLevels'
     import { usePermission } from '~/composables/usePermission'
     
     const route = useRoute()
@@ -275,11 +311,14 @@
     })
 
     const bookActionLabel = computed(() => {
-        console.log('bookActionLabel', data.value.isbuy)
         if (type === 'book' && data.value && !data.value.isbuy && Number(data.value.price) > 0) {
             return '立即购买'
         }
         return '立即学习'
+    })
+
+    const bookChapterCount = computed(() => {
+        return (data.value?.book_details || []).length
     })
 
     const detailContent = computed(() => {
@@ -331,6 +370,7 @@
 
             // 电子书走统一支付弹窗
             if(type == "book"){
+                useBookPoints.value = true
                 showPayModal.value = true
                 return
             }
@@ -530,7 +570,7 @@
     const payPointsUsed = ref(0)
     const payDeductAmount = ref(0)
     const payCashAmount = ref(null)
-    const useBookPoints = ref(false)
+    const useBookPoints = ref(true)
     const payLoading = ref(false)
     const BOOK_PAY_POLLING_INTERVAL = 2000
     const BOOK_PAY_ORDER_EXPIRE_SECONDS = 30 * 60
@@ -609,7 +649,7 @@
                 method: 'POST',
                 baseURL: fetchConfig.baseURL,
                 headers: getAuthHeaders(),
-                body: { bookId: Number(id), channel: payChannel.value, usePoints: useBookPoints.value }
+                body: { bookId: Number(id), channel: payChannel.value }
             })
             if (res.code !== 200) {
                 createDiscreteApi(['message']).message.error(res.msg || '创建订单失败')
@@ -967,15 +1007,15 @@
         flex-wrap: wrap;
     }
     
-    .primary-btn {
+    .detail-page .primary-btn {
         min-width: 140px;
     }
-    
-    .secondary-btn {
+
+    .detail-page .secondary-btn {
         min-width: 120px;
     }
-    
-    .edit-btn {
+
+    .detail-page .edit-btn {
       min-width: 120px;
     }
 
@@ -1053,6 +1093,439 @@
         background: none;
         padding: 0;
         color: #333;
+    }
+
+    .book-detail-page {
+        width: 100%;
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 22px 0 48px;
+    }
+
+    .detail-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+        margin-bottom: 16px;
+        color: #94a3b8;
+        font-size: 13px;
+    }
+
+    .detail-breadcrumb a {
+        color: #64748b;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .detail-breadcrumb a:hover {
+        color: #4f46e5;
+    }
+
+    .detail-breadcrumb span {
+        min-width: 0;
+        overflow: hidden;
+        color: #334155;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .book-detail-page .book-hero {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: 28px;
+        margin-bottom: 26px;
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+        border-top: 3px solid #4f46e5;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .book-detail-page .book-cover-container {
+        width: 210px;
+        height: 294px;
+        overflow: hidden;
+        border-radius: 6px;
+        background: #f1f5f9;
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+
+    .book-detail-page .book-cover-large {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        object-fit: contain;
+        box-shadow: none;
+    }
+
+    .book-detail-page .book-cover-large:hover {
+        transform: none;
+    }
+
+    .book-detail-page .book-badge {
+        top: auto;
+        right: auto;
+        bottom: 12px;
+        left: 12px;
+        padding: 5px 9px;
+        border-radius: 4px;
+        background: #dcfce7;
+        color: #166534;
+        box-shadow: none;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .book-detail-page .book-badge.paid {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .book-detail-page .info {
+        min-width: 0;
+        gap: 18px;
+    }
+
+    .book-detail-page .info > .flex {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .book-eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: #4f46e5;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .eyebrow-divider {
+        width: 1px;
+        height: 12px;
+        background: #cbd5e1;
+    }
+
+    .owned-badge {
+        margin-left: 4px;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .book-detail-page .book-header {
+        width: 100%;
+        margin-top: 12px;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+
+    .book-detail-page .book-title {
+        min-width: 0;
+        color: #111827;
+        font-size: 30px;
+        line-height: 1.3;
+        letter-spacing: 0;
+    }
+
+    .book-summary {
+        display: -webkit-box;
+        max-width: 780px;
+        margin: 14px 0 0;
+        overflow: hidden;
+        color: #64748b;
+        font-size: 14px;
+        line-height: 1.8;
+        text-overflow: ellipsis;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+    }
+
+    .book-detail-page .book-meta {
+        width: 100%;
+        margin-top: 20px;
+        gap: 0;
+        border-top: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .book-detail-page .meta-item {
+        gap: 7px;
+        padding: 12px 18px;
+        border-right: 1px solid #e2e8f0;
+        color: #475569;
+        white-space: nowrap;
+    }
+
+    .book-detail-page .meta-item:first-child {
+        padding-left: 0;
+    }
+
+    .book-detail-page .meta-item:last-child {
+        border-right: 0;
+    }
+
+    .book-detail-page .price-section {
+        margin-top: 22px;
+    }
+
+    .book-detail-page .current-price {
+        color: #e11d48;
+        font-size: 30px;
+    }
+
+    .book-detail-page .action-buttons {
+        gap: 10px;
+        margin-top: auto;
+        padding-top: 2px;
+    }
+
+    .book-detail-page .action-buttons .n-button {
+        min-width: 0;
+        height: 40px;
+        border-radius: 6px;
+    }
+
+    .book-detail-page .primary-btn {
+        min-width: 132px;
+    }
+
+    .book-detail-page .detail-layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 280px !important;
+        gap: 20px;
+    }
+
+    .book-detail-page .detail-main,
+    .book-detail-page .detail-aside {
+        min-width: 0;
+        grid-column: auto !important;
+    }
+
+    .book-detail-page .detail-aside {
+        position: relative;
+    }
+
+    .book-detail-page .detail-aside > * {
+        position: sticky;
+        top: 18px;
+    }
+
+    .book-detail-page .detail-bottom {
+        margin-bottom: 20px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .book-detail-page .detail-bottom .border-b {
+        padding: 0 18px;
+        border-color: #e2e8f0;
+    }
+
+    .book-detail-page .detail-bottom .content {
+        min-height: 260px;
+        padding: 28px;
+        color: #334155;
+        font-size: 15px;
+        line-height: 1.9;
+    }
+
+    .book-detail-page .book-qna-block {
+        margin-top: 0;
+    }
+
+    .book-detail-page .book-qna-block.question-panel {
+        padding: 22px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #111827;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .book-detail-page .book-qna-block .eyebrow {
+        display: none;
+    }
+
+    .book-detail-page .book-qna-block .panel-head h3 {
+        color: #111827;
+        font-size: 20px;
+    }
+
+    .book-detail-page .book-qna-block .panel-desc,
+    .book-detail-page .book-qna-block .summary-label,
+    .book-detail-page .book-qna-block .question-main p,
+    .book-detail-page .book-qna-block .question-meta,
+    .book-detail-page .book-qna-block .state-box {
+        color: #64748b;
+    }
+
+    .book-detail-page .book-qna-block .ask-btn {
+        padding: 10px 16px;
+        border-radius: 6px;
+        background: #4f46e5;
+        color: #ffffff;
+        box-shadow: none;
+    }
+
+    .book-detail-page .book-qna-block .ask-btn:hover {
+        background: #4338ca;
+    }
+
+    .book-detail-page .book-qna-block .summary-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .book-detail-page .book-qna-block .summary-card {
+        padding: 14px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #f8fafc;
+        backdrop-filter: none;
+    }
+
+    .book-detail-page .book-qna-block .summary-card strong {
+        color: #1e293b;
+        font-size: 22px;
+    }
+
+    .book-detail-page .book-qna-block .dropdown-toggle {
+        border-color: #e2e8f0;
+        border-radius: 6px;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .book-detail-page .book-qna-block .dropdown-body {
+        border-color: #e2e8f0;
+        border-radius: 6px;
+        background: #f8fafc;
+    }
+
+    .book-detail-page .book-qna-block .question-item {
+        border-color: #e2e8f0;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #1e293b;
+    }
+
+    .book-detail-page .book-qna-block .question-item:hover {
+        border-color: #c7d2fe;
+        background: #eef2ff;
+    }
+
+    @media (max-width: 1000px) {
+        .book-detail-page .detail-layout {
+            grid-template-columns: 1fr !important;
+        }
+
+        .book-detail-page .detail-aside > * {
+            position: static;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .book-detail-page {
+            padding: 14px 0 32px;
+        }
+
+        .book-detail-page .book-hero {
+            grid-template-columns: 120px minmax(0, 1fr);
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .book-detail-page .book-cover-container {
+            width: 120px;
+            height: 168px;
+        }
+
+        .book-detail-page .book-title {
+            font-size: 22px;
+        }
+
+        .book-summary {
+            font-size: 13px;
+            -webkit-line-clamp: 2;
+        }
+
+        .book-detail-page .book-meta {
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .book-detail-page .meta-item {
+            padding: 8px 10px;
+            border-right: 0;
+        }
+
+        .book-detail-page .meta-item:first-child {
+            padding-left: 0;
+        }
+
+        .book-detail-page .price-section {
+            margin-top: 14px;
+        }
+
+        .book-detail-page .current-price {
+            font-size: 24px;
+        }
+
+        .book-detail-page .action-buttons {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            width: 100%;
+        }
+
+        .book-detail-page .action-buttons .n-button {
+            width: 100%;
+        }
+
+        .book-detail-page .detail-bottom .content {
+            padding: 20px 16px;
+        }
+
+        .book-detail-page .book-qna-block .summary-card {
+            padding: 12px 10px;
+        }
+
+        .book-detail-page .book-qna-block .summary-card strong {
+            font-size: 19px;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .book-detail-page .book-hero {
+            grid-template-columns: 96px minmax(0, 1fr);
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .book-detail-page .book-cover-container {
+            width: 96px;
+            height: 136px;
+        }
+
+        .book-detail-page .book-title {
+            font-size: 19px;
+        }
+
+        .book-eyebrow {
+            flex-wrap: wrap;
+        }
+
+        .book-detail-page .book-header {
+            gap: 8px;
+        }
     }
 
     .book-pay-modal {
