@@ -1,5 +1,5 @@
 <template>
-  <div class="outline-wrap">
+  <div ref="outlineWrapRef" class="outline-wrap">
     <div class="outline-header">
       <div class="outline-title">课程目录</div>
       <div class="header-right">
@@ -9,6 +9,7 @@
         <button v-if="editMode" class="btn-green" @click="addChapterInline">+ 新增章节</button>
       </div>
     </div>
+    <div v-if="editMode" class="drag-hint">拖动手柄 ⠿ 可调整章/小节顺序</div>
 
     <!-- 资料下载列表 -->
     <div v-if="showMaterials" class="material-panel">
@@ -31,14 +32,26 @@
       暂无章节内容
     </div>
 
-    <div class="chapter-list">
-      <!-- 已有章节 -->
-      <div v-for="(chapter, ci) in outline" :key="chapter.id" class="chapter-block">
+    <!-- 可排序容器：只放章节块，插入行放在外面，避免 Sortable 索引错乱 -->
+    <div v-else ref="chapterListRef" class="chapter-list">
+      <div
+        v-for="(chapter, ci) in outline"
+        :key="chapter.id"
+        class="chapter-block chapter-sort-item"
+        :data-chapter-id="chapter.id"
+      >
         <!-- 章节行 -->
         <div class="chapter-row" @click="toggleChapter(chapter.id)">
-          <span class="collapse-icon">{{ collapsedChapters.has(chapter.id) ? '▶' : '▼' }}</span>
+          <span
+            v-if="editMode"
+            class="drag-handle chapter-drag-handle"
+            title="拖拽调整章节顺序"
+            @click.stop
+          >⠿</span>
+          <span v-if="isCourseLink(chapter)" class="collapse-icon link-ico">🔗</span>
+          <span v-else class="collapse-icon">{{ collapsedChapters.has(chapter.id) ? '▶' : '▼' }}</span>
           <span class="chapter-badge">第 {{ ci + 1 }} 章</span>
-          <!-- 章节标题：普通显示 or 内联编辑 -->
+          <!-- 章节标题：普通显示 / 课程链接 / 内联编辑 -->
           <template v-if="editingChapterId === chapter.id">
             <input
               v-model="editingChapterTitle"
@@ -51,74 +64,128 @@
               v-focus
             />
           </template>
+          <span
+            v-else-if="isCourseLink(chapter)"
+            class="chapter-name chapter-link"
+            title="点击跳转到引入的课程"
+            @click.stop="goToLinkedCourse(chapter)"
+          >{{ chapter.title }}</span>
           <span v-else class="chapter-name">{{ chapter.title }}</span>
-          <span class="chapter-count">{{ (chapter.children || []).length }} 节</span>
+          <span v-if="isCourseLink(chapter)" class="link-tag">引入课程</span>
+          <span v-else class="chapter-count">{{ (chapter.children || []).length }} 节</span>
           <div v-if="editMode" class="chapter-actions" @click.stop>
-            <span class="action-link primary" @click="addSectionInline(chapter)">+ 新增小节</span>
-            <span class="action-link" @click="startEditChapter(chapter)">编辑</span>
+            <span v-if="!isCourseLink(chapter)" class="action-link primary" @click="addSectionInline(chapter)">+ 新增小节</span>
+            <span class="action-link" @click="insertChapterAfter(ci)">在此后插入</span>
+            <span class="action-link" @click="startEditChapter(chapter)">{{ isCourseLink(chapter) ? '改标题' : '编辑' }}</span>
             <span class="action-link danger" @click="confirmDeleteChapter(chapter)">删除</span>
           </div>
         </div>
 
-        <!-- 小节列表（可折叠） -->
-        <div v-show="!collapsedChapters.has(chapter.id)" class="section-list">
-          <div v-if="!chapter.children || chapter.children.length === 0" class="no-section">暂无小节</div>
+        <!-- 小节列表（可折叠；引入课程的章无小节，不渲染） -->
+        <div
+          v-if="!isCourseLink(chapter)"
+          v-show="!collapsedChapters.has(chapter.id)"
+        >
+          <!-- 仅小节行参与 Sortable，避免插入行干扰索引 -->
           <div
-            v-for="(section, si) in chapter.children || []"
-            :key="section.id"
-            class="section-row"
-            :class="{ clickable: true }"
-            @click="!editMode && goToStudy(section)"
+            class="section-list"
+            :data-chapter-index="ci"
+            :data-chapter-id="chapter.id"
           >
-            <span class="section-num">{{ ci + 1 }}.{{ si + 1 }}</span>
-            <span class="section-dot" :style="{ background: section.sectionType === 'video' ? '#2080f0' : '#18a058' }"></span>
-            <span class="section-name">{{ section.title }}</span>
-            <span v-if="section.freeFlag === 1" class="free-tag">免费试看</span>
-            <div class="section-right">
-              <template v-if="!editMode">
-                <span v-if="section.freeFlag === 1" class="free-label">免费</span>
-                <span v-else-if="accessLevel !== 'FULL'" style="color:#ccc;font-size:13px">🔒</span>
-              </template>
-              <template v-else>
-                <span class="action-link primary" @click.stop="goToLesson(section)">编辑内容</span>
-                <span class="action-link danger" @click.stop="confirmDeleteSection(section)">删除</span>
-              </template>
+            <div
+              v-if="!editMode && (!chapter.children || chapter.children.length === 0)"
+              class="no-section"
+            >暂无小节</div>
+            <div
+              v-for="(section, si) in chapter.children || []"
+              :key="section.id"
+              class="section-row"
+              :class="{ clickable: !editMode }"
+              @click="!editMode && goToStudy(section)"
+            >
+              <span
+                v-if="editMode"
+                class="drag-handle section-drag-handle"
+                title="拖拽调整小节顺序（可跨章）"
+                @click.stop
+              >⠿</span>
+              <span class="section-num">{{ ci + 1 }}.{{ si + 1 }}</span>
+              <span v-if="isCourseLink(section)" class="section-dot" style="background:#2080f0"></span>
+              <span v-else class="section-dot" :style="{ background: section.sectionType === 'video' ? '#2080f0' : '#18a058' }"></span>
+              <span
+                v-if="isCourseLink(section)"
+                class="section-name chapter-link"
+                title="点击跳转到引入的课程"
+                @click.stop="goToLinkedCourse(section)"
+              >🔗 {{ section.title }}</span>
+              <span v-else class="section-name">{{ section.title }}</span>
+              <span v-if="isCourseLink(section)" class="link-tag">引入课程</span>
+              <span v-else-if="section.freeFlag === 1" class="free-tag">免费试看</span>
+              <div class="section-right">
+                <template v-if="!editMode">
+                  <span v-if="isCourseLink(section)" class="free-label">引入</span>
+                  <span v-else-if="section.freeFlag === 1" class="free-label">免费</span>
+                  <span v-else-if="accessLevel !== 'FULL'" style="color:#ccc;font-size:13px">🔒</span>
+                </template>
+                <template v-else>
+                  <span v-if="!isCourseLink(section)" class="action-link primary" @click.stop="goToLesson(section)">编辑内容</span>
+                  <span class="action-link danger" @click.stop="confirmDeleteSection(section)">删除</span>
+                </template>
+              </div>
             </div>
           </div>
 
-          <!-- 该章节下新增小节的内联输入行 -->
+          <!-- 新增小节输入行放在排序容器外 -->
           <div v-if="addingSectionChapterId === chapter.id" class="inline-add-row">
             <span class="section-num">{{ ci + 1 }}.{{ (chapter.children || []).length + 1 }}</span>
             <input
               v-model="newSectionTitle"
               class="inline-input"
-              placeholder="输入小节标题，回车保存，Esc取消"
-              @blur="saveNewSection(chapter)"
+              placeholder="输入小节标题后回车保存，或点右侧「引入已有课程」"
               @keyup.enter="saveNewSection(chapter)"
               @keyup.escape="cancelAddSection"
               v-focus
             />
+            <span class="action-link primary" style="margin-left:8px" @click="saveNewSection(chapter)">保存</span>
+            <span class="action-link" style="margin-left:8px" @click="openImportSectionModal(chapter)">引入已有课程</span>
             <span class="action-link danger" style="margin-left:8px" @click="cancelAddSection">取消</span>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- 新增章节的内联输入行 -->
-      <div v-if="addingChapter" class="chapter-block">
+    <!-- 插入/新增章节输入行（在排序容器外，不干扰拖拽） -->
+    <div v-if="!loading && insertAfterIndex !== null" class="chapter-block insert-chapter-block">
+      <div class="chapter-row">
+        <span class="chapter-badge">第 {{ insertAfterIndex + 2 }} 章</span>
+        <input
+          v-model="insertChapterTitle"
+          class="inline-input"
+          placeholder="输入新章节标题，回车保存，Esc取消"
+          @blur="saveInsertChapter(insertAfterIndex)"
+          @keyup.enter="saveInsertChapter(insertAfterIndex)"
+          @keyup.escape="cancelInsertChapter"
+          v-focus
+        />
+        <span class="action-link danger" style="margin-left:8px" @click="cancelInsertChapter">取消</span>
+      </div>
+    </div>
+
+    <div v-if="!loading && addingChapter" class="chapter-block insert-chapter-block">
         <div class="chapter-row">
           <span class="chapter-badge">第 {{ outline.length + 1 }} 章</span>
           <input
             v-model="newChapterTitle"
             class="inline-input"
-            placeholder="输入章节标题，回车保存，Esc取消"
-            @blur="saveNewChapter"
+            placeholder="输入章节标题后回车保存，或点右侧「引入已有课程」"
             @keyup.enter="saveNewChapter"
             @keyup.escape="cancelAddChapter"
             v-focus
           />
+          <span class="action-link primary" style="margin-left:8px" @click="saveNewChapter">保存</span>
+          <span class="action-link" style="margin-left:8px" @click="openImportModal">引入已有课程</span>
           <span class="action-link danger" style="margin-left:8px" @click="cancelAddChapter">取消</span>
         </div>
-      </div>
     </div>
   </div>
 
@@ -131,14 +198,55 @@
     @update:show="showSectionEdit = $event"
     @saved="loadOutline"
   />
+
+  <!-- 引入课程作为章：课程选择弹窗（仅在「新增章节 → 引入已有课程」时弹出） -->
+  <n-modal
+    v-if="showImport"
+    :show="showImport"
+    preset="card"
+    :title="importMode === 'section' ? '引入课程作为小节' : '引入课程作为章'"
+    style="width: 520px; max-width: 92vw"
+    :segmented="{ content: true }"
+    :mask-closable="!chapterBusy"
+    @update:show="closeImportModal"
+  >
+    <div class="import-search">
+      <input
+        v-model="importKeyword"
+        class="import-input"
+        placeholder="输入课程名称搜索，回车查询"
+        @keyup.enter="searchImportCourses"
+      />
+      <button class="btn-green" :disabled="importLoading" @click="searchImportCourses">搜索</button>
+    </div>
+    <div class="import-body">
+      <div v-if="importLoading" class="import-tip">搜索中...</div>
+      <div v-else-if="importList.length === 0" class="import-tip">未找到课程，换个关键词试试</div>
+      <div
+        v-for="c in importList"
+        :key="c.id"
+        class="import-item"
+        :class="{ disabled: String(c.id) === String(courseId) }"
+        @click="confirmImport(c)"
+      >
+        <img class="import-cover" :src="c.cover || coverPlaceholder" alt="" />
+        <div class="import-meta">
+          <div class="import-name">{{ c.title }}</div>
+          <div class="import-sub">课程ID：{{ c.id }}<span v-if="String(c.id) === String(courseId)" class="import-self">（不能引入自己）</span></div>
+        </div>
+        <span v-if="String(c.id) !== String(courseId)" class="import-pick">引入</span>
+      </div>
+    </div>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useRouter } from 'vue-router';
+import Sortable from 'sortablejs';
 import { fetchConfig } from '~/composables/useHttp';
-import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl, apiGetCourseMaterials, normalizeSectionFreeFlag } from '~/composables/Api/Course/course';
+import { getAuthHeaders, apiAddChapter, apiAddVideoSection, apiAddTextSection, apiDeleteSection, apiGetMaterialUrl, apiGetCourseMaterials, normalizeSectionFreeFlag, apiReorderSections, apiSearchCourses, apiAddCourseLinkSection } from '~/composables/Api/Course/course';
 import SectionEditModal from '~/components/Course/edit/SectionEditModal.vue';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
@@ -176,10 +284,38 @@ function goToLesson(section: any) {
   router.push(`/course/lesson/${section.id}?courseId=${props.courseId}&chapterId=${chapterId}`);
 }
 
+// ===== 引入课程作为章 =====
+const coverPlaceholder = 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg';
+
+// 该章是否为「引入的课程链接」
+function isCourseLink(chapter: any): boolean {
+  return chapter?.type === 'course_link';
+}
+
+// 点击引入课程的章标题：跳转到被引入课程的详情页
+function goToLinkedCourse(chapter: any) {
+  const target = chapter?.linkedCourseId;
+  if (!target) {
+    message.warning('该引入课程已失效');
+    return;
+  }
+  router.push(`/course_detail/${target}`);
+}
+
 const loading = ref(false);
 const outline = ref<any[]>([]);
+const outlineWrapRef = ref<HTMLElement | null>(null);
+const chapterListRef = ref<HTMLElement | null>(null);
+let chapterSortable: Sortable | null = null;
+const sectionSortables: Sortable[] = [];
 
-onMounted(loadOutline);
+onMounted(() => {
+  loadOutline();
+});
+
+onUnmounted(() => {
+  destroySortables();
+});
 
 // ===== 资料下载 =====
 const showMaterials = ref(false);
@@ -244,6 +380,299 @@ async function loadOutline() {
     message.error('加载目录失败');
   } finally {
     loading.value = false;
+    await nextTick();
+    initSortables();
+  }
+}
+
+// ===== SortableJS 拖拽排序 =====
+// 防止排序/插入过程中重复提交或并发操作
+const chapterBusy = ref(false);
+
+function destroySortables() {
+  chapterSortable?.destroy();
+  chapterSortable = null;
+  sectionSortables.forEach((s) => s.destroy());
+  sectionSortables.length = 0;
+}
+
+async function initSortables() {
+  destroySortables();
+  if (!props.editMode || loading.value) return;
+  await nextTick();
+  const chapterEl = chapterListRef.value;
+  if (!chapterEl) return;
+
+  chapterSortable = Sortable.create(chapterEl, {
+    animation: 150,
+    handle: '.chapter-drag-handle',
+    draggable: '.chapter-sort-item',
+    ghostClass: 'sort-ghost',
+    chosenClass: 'sort-chosen',
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 3,
+    onEnd: (evt) => {
+      if (chapterBusy.value || evt.oldIndex == null || evt.newIndex == null) return;
+      if (evt.oldIndex === evt.newIndex) return;
+      // 立刻同步 Vue 数据，防止 Sortable 改 DOM 后被 Vue 重渲染还原
+      const arr = [...outline.value];
+      const [moved] = arr.splice(evt.oldIndex, 1);
+      arr.splice(evt.newIndex, 0, moved);
+      outline.value = arr;
+      persistChapterOrder(arr);
+    },
+  });
+
+  const sectionLists = outlineWrapRef.value?.querySelectorAll('.section-list[data-chapter-index]') || [];
+  sectionLists.forEach((el) => {
+    const ci = Number((el as HTMLElement).dataset.chapterIndex);
+    const chapter = outline.value[ci];
+    if (!chapter || isCourseLink(chapter)) return;
+    sectionSortables.push(
+      Sortable.create(el as HTMLElement, {
+        group: 'course-sections',
+        animation: 150,
+        handle: '.section-drag-handle',
+        draggable: '.section-row',
+        filter: '.inline-add-row,.no-section',
+        preventOnFilter: true,
+        ghostClass: 'sort-ghost',
+        chosenClass: 'sort-chosen',
+        forceFallback: true,
+        fallbackOnBody: true,
+        fallbackTolerance: 3,
+        onEnd: (evt) => {
+          if (chapterBusy.value || evt.oldIndex == null || evt.newIndex == null) return;
+          const fromCi = Number((evt.from as HTMLElement).dataset.chapterIndex);
+          const toCi = Number((evt.to as HTMLElement).dataset.chapterIndex);
+          if (Number.isNaN(fromCi) || Number.isNaN(toCi)) return;
+          const toChapter = outline.value[toCi];
+          if (isCourseLink(toChapter)) {
+            message.warning('引入课程的章不能放入小节');
+            loadOutline();
+            return;
+          }
+          if (fromCi === toCi && evt.oldIndex === evt.newIndex) return;
+          moveSection(fromCi, evt.oldIndex, toCi, evt.newIndex);
+        },
+      }),
+    );
+  });
+}
+
+// 将章节新顺序写回后端
+async function persistChapterOrder(chapters: any[]) {
+  const items = chapters.map((ch, i) => ({ id: ch.id, parentId: 0, sort: i + 1 }));
+  chapterBusy.value = true;
+  try {
+    const res: any = await apiReorderSections({ courseId: Number(props.courseId), items });
+    if (res?.code !== 200) throw new Error(res?.msg || '排序保存失败');
+    message.success('章节顺序已保存');
+    await loadOutline();
+  } catch (err: any) {
+    message.error(err?.message || err?.data?.msg || '排序保存失败，已恢复原顺序');
+    await loadOutline();
+  } finally {
+    chapterBusy.value = false;
+  }
+}
+
+// ===== 在指定章节后插入新章节 =====
+const insertAfterIndex = ref<number | null>(null);
+const insertChapterTitle = ref('');
+
+function insertChapterAfter(index: number) {
+  if (chapterBusy.value) return;
+  // 关闭其它内联输入，避免互相干扰
+  addingChapter.value = false;
+  editingChapterId.value = null;
+  addingSectionChapterId.value = null;
+  insertAfterIndex.value = index;
+  insertChapterTitle.value = '';
+}
+
+function cancelInsertChapter() {
+  insertAfterIndex.value = null;
+  insertChapterTitle.value = '';
+}
+
+async function saveInsertChapter(afterIndex: number) {
+  // blur 与 enter 可能同时触发，用 busy + 标题判断双重保护
+  if (chapterBusy.value) return;
+  const title = insertChapterTitle.value.trim();
+  if (!title) { cancelInsertChapter(); return; }
+  chapterBusy.value = true;
+  try {
+    // 1. 先创建新章节（暂时排到末尾），后端返回新章节 id
+    const createRes: any = await apiAddChapter({
+      courseId: Number(props.courseId),
+      title,
+      sort: outline.value.length + 1,
+    });
+    if (createRes?.code !== 200 || !createRes?.data) throw new Error(createRes?.msg || '插入失败');
+    const newId = createRes.data;
+    // 2. 把新章节插到目标位置，整体重排一次写回（原子）
+    const ids = outline.value.map((c: any) => c.id);
+    ids.splice(afterIndex + 1, 0, newId);
+    const items = ids.map((id: any, i: number) => ({ id, parentId: 0, sort: i + 1 }));
+    const res: any = await apiReorderSections({ courseId: Number(props.courseId), items });
+    if (res?.code !== 200) throw new Error(res?.msg || '插入失败');
+    message.success('章节已插入');
+    cancelInsertChapter();
+    await loadOutline();
+  } catch (err: any) {
+    message.error(err?.message || err?.data?.msg || '插入失败');
+    await loadOutline();
+  } finally {
+    chapterBusy.value = false;
+  }
+}
+
+// 把 [fromCi].children[fromSi] 移动到 [toCi] 的第 toSi 个位置（可跨章），重排受影响章节的 sort
+async function moveSection(fromCi: number, fromSi: number, toCi: number, toSi: number) {
+  if (chapterBusy.value) return;
+  const fromChapter = outline.value[fromCi];
+  const toChapter = outline.value[toCi];
+  if (!fromChapter || !toChapter) return;
+  if (isCourseLink(toChapter)) {
+    message.warning('引入课程的章不能放入小节');
+    return;
+  }
+  const section = (fromChapter.children || [])[fromSi];
+  if (!section) return;
+  if (fromCi === toCi && fromSi === toSi) return;
+
+  // 乐观更新：从源章移除，再插入目标位置（Sortable 的 newIndex 即目标下标）
+  fromChapter.children.splice(fromSi, 1);
+  let insertIdx = toSi;
+  if (insertIdx > (toChapter.children?.length || 0)) insertIdx = toChapter.children.length;
+  section.parentId = toChapter.id;
+  toChapter.children.splice(insertIdx, 0, section);
+
+  // 收集受影响章节下所有小节的新 parentId + sort
+  const affected = fromCi === toCi ? [toChapter] : [fromChapter, toChapter];
+  const items: any[] = [];
+  for (const ch of affected) {
+    (ch.children || []).forEach((s: any, i: number) => {
+      items.push({ id: s.id, parentId: ch.id, sort: i + 1 });
+    });
+  }
+
+  chapterBusy.value = true;
+  try {
+    const res: any = await apiReorderSections({ courseId: Number(props.courseId), items });
+    if (res?.code !== 200) throw new Error(res?.msg || '排序保存失败');
+    message.success('小节顺序已更新');
+    await loadOutline();
+  } catch (err: any) {
+    message.error(err?.message || err?.data?.msg || '排序保存失败，已恢复');
+    await loadOutline();
+  } finally {
+    chapterBusy.value = false;
+  }
+}
+
+// ===== 引入课程弹窗 =====
+const showImport = ref(false);
+const importKeyword = ref('');
+const importLoading = ref(false);
+const importList = ref<any[]>([]);
+// 引入目标：'chapter' = 引入为章；'section' = 引入为某章下的小节
+const importMode = ref<'chapter' | 'section'>('chapter');
+const importParentChapter = ref<any>(null);
+
+// 从「新增章节」行里点击「引入已有课程」时弹出，保留新增行上下文（取消弹窗即回到新增行）
+function openImportModal() {
+  importMode.value = 'chapter';
+  importParentChapter.value = null;
+  editingChapterId.value = null;
+  insertAfterIndex.value = null;
+  importKeyword.value = '';
+  importList.value = [];
+  showImport.value = true;
+  searchImportCourses();
+}
+
+// 从某章的「新增小节」行里点击「引入已有课程」时弹出
+function openImportSectionModal(chapter: any) {
+  importMode.value = 'section';
+  importParentChapter.value = chapter;
+  importKeyword.value = '';
+  importList.value = [];
+  showImport.value = true;
+  searchImportCourses();
+}
+
+function closeImportModal() {
+  if (chapterBusy.value) return;
+  showImport.value = false;
+}
+
+async function searchImportCourses() {
+  importLoading.value = true;
+  try {
+    const res: any = await apiSearchCourses({
+      keyword: importKeyword.value.trim(),
+      pageNum: 1,
+      pageSize: 20,
+    });
+    const data = res?.data || {};
+    importList.value = data.rows || data.records || [];
+  } catch (e: any) {
+    message.error(e?.data?.msg || '搜索课程失败');
+    importList.value = [];
+  } finally {
+    importLoading.value = false;
+  }
+}
+
+async function confirmImport(course: any) {
+  if (chapterBusy.value) return;
+  if (String(course.id) === String(props.courseId)) {
+    message.warning('不能把课程引入到它自己');
+    return;
+  }
+  chapterBusy.value = true;
+  try {
+    let res: any;
+    if (importMode.value === 'section') {
+      // 引入为小节：挂到指定章下，sort 排到该章末尾
+      const chapter = importParentChapter.value;
+      if (!chapter) { message.error('未指定所属章节'); return; }
+      res = await apiAddCourseLinkSection({
+        courseId: Number(props.courseId),
+        parentId: chapter.id,
+        title: course.title,
+        sort: (chapter.children?.length || 0) + 1,
+        linkedCourseId: course.id,
+      });
+    } else {
+      // 引入为章
+      res = await apiAddChapter({
+        courseId: Number(props.courseId),
+        title: course.title,
+        sort: outline.value.length + 1,
+        type: 'course_link',
+        linkedCourseId: course.id,
+      });
+    }
+    if (res?.code === 200) {
+      message.success(importMode.value === 'section' ? '已引入课程作为小节' : '已引入课程作为新章');
+      showImport.value = false;
+      if (importMode.value === 'section') {
+        cancelAddSection();
+      } else {
+        cancelAddChapter();
+      }
+      await loadOutline();
+    } else {
+      message.error(res?.msg || '引入失败');
+    }
+  } catch (e: any) {
+    message.error(e?.data?.msg || '引入失败');
+  } finally {
+    chapterBusy.value = false;
   }
 }
 
@@ -342,6 +771,15 @@ const addingSectionChapterId = ref<number | null>(null);
 const newSectionTitle = ref('');
 const newSectionType = ref('video');
 
+watch(() => props.editMode, (val) => {
+  if (val) initSortables();
+  else destroySortables();
+});
+
+watch(() => outline.value.length, () => {
+  if (props.editMode) initSortables();
+});
+
 function addSectionInline(chapter: any) {
   addingSectionChapterId.value = chapter.id;
   newSectionTitle.value = '';
@@ -433,6 +871,7 @@ const editingSection = ref<any>(null);
 }
 .outline-title { font-size: 15px; font-weight: 600; color: #1a1a1a; }
 .header-right { display: flex; align-items: center; gap: 10px; }
+.drag-hint { font-size: 12px; color: #888; padding: 0 20px 10px; }
 
 .btn-download-mat {
   background: #fff; color: #18a058; border: 1px solid #18a058;
@@ -474,9 +913,85 @@ const editingSection = ref<any>(null);
   cursor: pointer;
 }
 .btn-green:hover { background: #0e7a3e; }
+.btn-green:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-outline {
+  background: #fff; color: #2080f0; border: 1px solid #2080f0;
+  border-radius: 4px; padding: 6px 14px; font-size: 13px;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-outline:hover { background: #2080f0; color: #fff; }
+
+/* 引入课程的章 */
+.collapse-icon.link-ico { font-size: 13px; }
+.chapter-link { color: #2080f0; cursor: pointer; text-decoration: none; }
+.chapter-link:hover { text-decoration: underline; }
+.link-tag {
+  font-size: 11px; color: #2080f0; border: 1px solid #2080f0;
+  padding: 1px 6px; border-radius: 3px; flex-shrink: 0;
+}
+
+/* 引入课程弹窗 */
+.import-modal {
+  width: 520px; max-width: 92vw; background: #fff;
+  border-radius: 10px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+.import-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid #f0f0f0;
+}
+.import-title { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.import-close { cursor: pointer; color: #999; font-size: 16px; }
+.import-close:hover { color: #333; }
+.import-search { display: flex; gap: 8px; padding: 14px 18px 6px; }
+.import-input {
+  flex: 1; border: 1px solid #ddd; border-radius: 6px;
+  padding: 7px 10px; font-size: 14px; outline: none;
+}
+.import-input:focus { border-color: #18a058; }
+.import-body { max-height: 50vh; overflow-y: auto; padding: 8px 18px 18px; }
+.import-tip { text-align: center; color: #999; font-size: 13px; padding: 24px 0; }
+.import-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px; border: 1px solid #eee; border-radius: 8px;
+  margin-top: 8px; cursor: pointer; transition: all 0.15s;
+}
+.import-item:hover { border-color: #18a058; background: #f6fdf9; }
+.import-item.disabled { opacity: 0.5; cursor: not-allowed; }
+.import-item.disabled:hover { border-color: #eee; background: #fff; }
+.import-cover { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #f0f0f0; }
+.import-meta { flex: 1; min-width: 0; }
+.import-name { font-size: 14px; color: #222; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-sub { font-size: 12px; color: #999; margin-top: 2px; }
+.import-self { color: #d03050; margin-left: 4px; }
+.import-pick { font-size: 13px; color: #18a058; flex-shrink: 0; }
 
 .chapter-block { border-bottom: 1px solid #f0f0f0; }
 .chapter-block:last-child { border-bottom: none; }
+.insert-chapter-block { background: #f0fdf4; }
+
+/* SortableJS 拖拽态 */
+.sort-ghost { opacity: 0.45; background: #e8f5e9 !important; }
+.sort-chosen { background: #f0fdf4 !important; }
+
+/* 拖拽手柄 */
+.drag-handle {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: #18a058;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: grab;
+  user-select: none;
+  text-align: center;
+  background: #f0fdf4;
+  border: 1px solid #b7e4c7;
+  border-radius: 4px;
+  touch-action: none;
+}
+.drag-handle:hover { background: #dcfce7; border-color: #18a058; }
+.sort-chosen .drag-handle, .sort-ghost .drag-handle { cursor: grabbing; background: #bbf7d0; }
 .chapter-row {
   display: flex;
   align-items: center;
