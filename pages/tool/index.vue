@@ -1,10 +1,37 @@
 <template>
   <div class="tool-container">
-    <!-- 面包屑 -->
-    <div class="breadcrumb-nav">
-      <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
-      <span class="bc-sep">›</span>
-      <span class="bc-current">🛠️ 工具</span>
+    <div class="breadcrumb-header">
+      <div class="breadcrumb-nav">
+        <span class="bc-item" @click="$router.push('/')">🏠 首页</span>
+        <span class="bc-sep">›</span>
+        <span class="bc-current">🛠️ 工具</span>
+      </div>
+      <ClientOnly>
+        <div v-if="isLoggedIn" class="quota-hero" :class="{ loading: quotaLoading }">
+          <div class="quota-hero-icon">♦</div>
+          <div class="quota-hero-content">
+            <span class="quota-hero-label">当前工具点数</span>
+            <strong class="quota-hero-value">{{ quotaLoading ? '--' : currentToolQuota.remainingCount }}</strong>
+          </div>
+          <div class="quota-hero-meta">
+            <span>累计 {{ currentToolQuota.totalBuyCount }}</span>
+            <span>已用 {{ currentToolQuota.usedCount }}</span>
+          </div>
+          <button class="quota-login-btn quota-buy-btn" type="button" @click="$router.push('/tool/quota')">
+            购买工具点数
+          </button>
+        </div>
+        <div v-else class="quota-hero quota-hero-guest">
+          <div class="quota-hero-icon quota-hero-icon-guest">i</div>
+          <div class="quota-hero-content">
+            <span class="quota-hero-label">当前未登录</span>
+            <strong class="quota-hero-value">仅可使用免费工具</strong>
+          </div>
+          <button class="quota-login-btn" type="button" @click="$router.push('/login?from=/tool')">
+            去登录
+          </button>
+        </div>
+      </ClientOnly>
     </div>
     <TransitionGroup name="tool-announcement-stack" tag="div" class="tool-announcement-stack">
       <div
@@ -220,13 +247,6 @@
                       {{ item.isFavorite ? '已收藏' : '+收藏' }}
                     </button>
                     <button
-                      class="row-action-btn open"
-                      type="button"
-                      @click.stop="handleOpenTool(item)"
-                    >
-                      购买工具使用次数
-                    </button>
-                    <button
                       v-if="canUpdate"
                       class="row-action-btn edit"
                       type="button"
@@ -249,7 +269,8 @@
                     <component
                       :is="getRuntimeComponent(item)"
                       v-else-if="getRuntimeComponent(item)"
-                      @used="handleToolUsed(item)"
+                      :tool-id="item.id"
+                      @refresh-quota="refreshCurrentToolQuota"
                     />
                     <div v-else class="tool-empty-url">
                       该工具暂未配置可加载的工具文件
@@ -347,6 +368,7 @@ import QuestionAnswerCreateModal from '~/components/question_answer/CreateModal.
 import {
   apiCollectTool,
   apiConsumeToolUsage,
+  apiCurrentToolQuota,
   apiDeleteTool,
   apiRemoveCollectTool,
   apiRecordToolView,
@@ -363,6 +385,8 @@ import ToolRuntimeTestTest from '~/components/Tool/runtime/test/test.vue';
 const route = useRoute();
 const { permissionList } = usePermission();
 const { toolUserNoticeRefreshFlag } = useWebSocket();
+const currentUser = useUser();
+const tokenCookie = useCookie('token');
 
 const getRoutePageNum = () => {
   const page = Number(route.query.page || 1);
@@ -420,10 +444,16 @@ const consumingToolIds = ref(new Set());
 const deleteSubmitting = ref(false);
 const recommendType = ref('HOT');
 const recommendLoading = ref(false);
+const quotaLoading = ref(false);
 const recommendPageSize = 5;
 const recommendData = reactive({
   HOT: { rows: [] },
   LATEST: { rows: [] },
+});
+const currentToolQuota = reactive({
+  remainingCount: 0,
+  totalBuyCount: 0,
+  usedCount: 0,
 });
 const recommendTabs = [
   { label: '最近火热', value: 'HOT', icon: '⚡' },
@@ -435,6 +465,12 @@ const duplicatedSystemAnnouncements = computed(() => toolSystemAnnouncements.val
 const duplicatedUserAnnouncements = computed(() => toolUserAnnouncements.value.length > 1
   ? [...toolUserAnnouncements.value, ...toolUserAnnouncements.value]
   : toolUserAnnouncements.value);
+const isLoggedIn = computed(() => {
+  if (currentUser.value) return true;
+  if (tokenCookie.value) return true;
+  if (!process.client) return false;
+  return !!(localStorage.getItem('token') || localStorage.getItem('Token'));
+});
 const TOOL_ANNOUNCEMENT_TOAST_MAX = 2;
 const TOOL_ANNOUNCEMENT_TOAST_DURATION = 3000;
 
@@ -532,6 +568,33 @@ const loadRecommendTools = async (type = recommendType.value) => {
   }
 };
 
+const loadCurrentToolQuota = async () => {
+  if (!isLoggedIn.value) {
+    currentToolQuota.remainingCount = 0;
+    currentToolQuota.totalBuyCount = 0;
+    currentToolQuota.usedCount = 0;
+    return;
+  }
+  quotaLoading.value = true;
+  try {
+    const res = await apiCurrentToolQuota();
+    const data = res?.data || res || {};
+    currentToolQuota.remainingCount = Number(data.remainingCount || 0);
+    currentToolQuota.totalBuyCount = Number(data.totalBuyCount || 0);
+    currentToolQuota.usedCount = Number(data.usedCount || 0);
+  } catch (e) {
+    currentToolQuota.remainingCount = 0;
+    currentToolQuota.totalBuyCount = 0;
+    currentToolQuota.usedCount = 0;
+  } finally {
+    quotaLoading.value = false;
+  }
+};
+
+const refreshCurrentToolQuota = async () => {
+  await loadCurrentToolQuota();
+};
+
 const loadToolSystemAnnouncements = async () => {
   try {
     const res = await apiToolSystemAnnouncements();
@@ -612,10 +675,23 @@ onMounted(() => {
   loadTags();
   loadTools();
   loadRecommendTools();
+  if (isLoggedIn.value) {
+    loadCurrentToolQuota();
+  }
   if (process.client) {
     window.addEventListener('message', handleIframeToolMessage);
     window.addEventListener('tool-announcement-toast', handleToolAnnouncementToast);
   }
+});
+
+watch(isLoggedIn, (value) => {
+  if (value) {
+    loadCurrentToolQuota();
+    return;
+  }
+  currentToolQuota.remainingCount = 0;
+  currentToolQuota.totalBuyCount = 0;
+  currentToolQuota.usedCount = 0;
 });
 
 onBeforeUnmount(() => {
@@ -804,11 +880,31 @@ const handleOpenTool = (item) => {
   navigateTo(`/tool/detail/${item.id}`);
 };
 
+const canExpandTool = (item) => {
+  if (!item) {
+    return false;
+  }
+  if (item.resourceType === 'FREE') {
+    return true;
+  }
+  const currentLevel = Number(getUserMemberLevel() || 0);
+  const requiredLevel = Number(item.level || 0);
+  if (currentLevel > requiredLevel) {
+    return true;
+  }
+  return Number(currentToolQuota.remainingCount || 0) > 0;
+};
+
 const toggleExpand = (item) => {
+  const { message } = createDiscreteApi(['message']);
   const nextExpanded = !item.isExpanded;
+  if (nextExpanded && !canExpandTool(item)) {
+    message.warning('当前工具点数不足，无法展开该工具');
+    return;
+  }
   toolList.value = toolList.value.map((tool) => ({
     ...tool,
-    isExpanded: tool.id === item.id ? nextExpanded : false,
+    isExpanded: tool.id === item.id ? nextExpanded : tool.isExpanded,
   }));
   if (nextExpanded) {
     const current = toolList.value.find((tool) => tool.id === item.id);
@@ -855,8 +951,7 @@ const formatAccessType = () => '站内页面';
 const formatResourceType = (resourceType) => {
   const typeMap = {
     FREE: '免费',
-    CASH_ONLY: '付费',
-    CASH_POINT: '付费',
+    CASH_POINT: '消耗工具点数',
     VIP: 'VIP',
     SMALL_CLASS: '小班',
     INTERNAL: '内部',
@@ -864,7 +959,7 @@ const formatResourceType = (resourceType) => {
   return typeMap[resourceType] || resourceType || '工具';
 };
 
-const isPaidResourceType = (resourceType) => ['CASH_ONLY', 'CASH_POINT'].includes(resourceType);
+const isPaidResourceType = (resourceType) => ['CASH_POINT'].includes(resourceType);
 
 const buildUsageKey = (toolId) => `${toolId}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -931,10 +1026,13 @@ const handleToolUsed = async (item, usageKey) => {
       usageKey: usageKey || buildUsageKey(item.id),
     });
     if (res?.code === 200) {
-      item.remainingCount = Number(res.data ?? Math.max(0, Number(item.remainingCount || 0) - 1));
+      const consumeCost = Number(item?.quotaCost || 1);
+      item.remainingCount = Number(res.data ?? Math.max(0, Number(item.remainingCount || 0) - consumeCost));
       item.purchasedFlag = item.remainingCount > 0 ? 1 : 0;
       item.totalUsage = Number(item.totalUsage || 0) + 1;
-      message.success('已扣减 1 次工具使用次数');
+      currentToolQuota.remainingCount = Math.max(0, Number(currentToolQuota.remainingCount || 0) - consumeCost);
+      currentToolQuota.usedCount = Number(currentToolQuota.usedCount || 0) + consumeCost;
+      message.success(`已扣减 ${consumeCost} 工具点数`);
     } else {
       message.error(res?.msg || '扣减工具使用次数失败');
     }
@@ -946,17 +1044,12 @@ const handleToolUsed = async (item, usageKey) => {
 };
 
 const getMinSortPackage = (item) => {
-  const packages = Array.isArray(item?.packages) ? item.packages : [];
-  if (!packages.length) return null;
-  return [...packages]
-    .filter((pkg) => Number(pkg.status ?? 1) === 1)
-    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))[0] || null;
+  return null;
 };
 
 const formatMinSortPackagePrice = (item) => {
-  const pkg = getMinSortPackage(item);
-  if (!pkg) return '暂无套餐';
-  return `¥${pkg.price || 0} / ${pkg.useCount || 0}次`;
+  if (!isPaidResourceType(item?.resourceType)) return '免费';
+  return `单次消耗 ${Number(item?.quotaCost || 1)} 工具点数`;
 };
 
 const formatRecommendTime = (item) => {
@@ -1100,18 +1193,112 @@ const rollbackFavorite = (tool, wasCollected, previousCount) => {
   padding: 0 24px;
 }
 
+.breadcrumb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0 4px;
+}
+
 .breadcrumb-nav {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   color: #999;
-  padding: 14px 0 4px;
 }
 .bc-item { color: #666; cursor: pointer; transition: color 0.2s; }
 .bc-item:hover { color: #18a058; }
 .bc-sep { color: #ddd; user-select: none; }
 .bc-current { color: #333; font-weight: 600; }
+.quota-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 250px;
+  padding: 10px 14px;
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.96), rgba(224, 242, 254, 0.92));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+.quota-hero.loading {
+  opacity: 0.72;
+}
+.quota-hero-guest {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.94));
+}
+.quota-hero-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.quota-hero-icon-guest {
+  background: linear-gradient(135deg, #64748b, #94a3b8);
+}
+.quota-hero-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.quota-hero-label {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.2;
+}
+.quota-hero-value {
+  font-size: 22px;
+  color: #0f172a;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.quota-hero-meta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.quota-login-btn {
+  margin-left: auto;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.quota-login-btn:hover {
+  border-color: #18a058;
+  color: #18a058;
+}
+.quota-buy-btn {
+  background: #18a058;
+  color: #fff;
+  border-color: #18a058;
+}
+.quota-buy-btn:hover {
+  background: #15914d;
+  border-color: #15914d;
+  color: #fff;
+}
 .tool-notice-section {
   margin-bottom: 14px;
 }

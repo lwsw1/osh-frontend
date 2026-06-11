@@ -15,7 +15,6 @@
     "markdown-it": "^14.1.1",
     "monaco-editor": "^0.55.1",
     "naive-ui": "^2.30.6",
-    "nitropack": "^2.5.2",
     "nuxt": "3.6.5",
     "nuxt-windicss": "^2.2.0",
     "qrcode": "^1.5.4",
@@ -25,5 +24,8 @@
   },
   "devDependencies": {
     "@bg-dev/nuxt-naiveui": "^2.0.0"
+  },
+  "overrides": {
+    "nitropack": "2.5.2"
   }
 }
