@@ -230,7 +230,12 @@ const menus = ref([
     ]
   },
   { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon },
-  { name: '后台管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
+  {
+    name: '后台管理',
+    path: '/admin/users',
+    match: [{ name: 'admin-users' }, { name: 'admin-behavior' }, { name: 'admin-contribution' }, { name: 'admin-user-id' }],
+    iconComponent: AuditIcon
+  }
 ]);
 
 const SearchBarRef = ref(null);
@@ -446,7 +451,7 @@ onMounted(() => {
     } catch {}
   }
   if (!isFounder) {
-    const adminMenuIndex = menus.value.findIndex(item => item.path === '/admin/users')
+    const adminMenuIndex = menus.value.findIndex(item => item.name === '后台管理')
     if (adminMenuIndex !== -1) {
       menus.value.splice(adminMenuIndex, 1)
     }

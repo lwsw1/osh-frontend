@@ -156,13 +156,46 @@
       </template>
       <div v-else-if="!loading" class="empty-hint">用户不存在或无权查看</div>
     </n-spin>
+
+    <div v-if="user" class="section-card">
+      <div class="section-header">
+        <h3 class="section-title">行为与贡献</h3>
+        <div class="section-actions">
+          <n-button size="small" @click="navigateTo('/admin/behavior')">行为数据</n-button>
+          <n-button size="small" type="primary" secondary @click="navigateTo('/admin/contribution')">贡献统计</n-button>
+        </div>
+      </div>
+      <div class="behavior-metrics">
+        <div class="behavior-metric">
+          <span>贡献资源</span>
+          <strong>{{ contributionMetric.resourceCount || 0 }}</strong>
+        </div>
+        <div class="behavior-metric">
+          <span>现金收益</span>
+          <strong>¥{{ Number(contributionMetric.revenueAmount || 0).toFixed(2) }}</strong>
+        </div>
+        <div class="behavior-metric">
+          <span>积分收益</span>
+          <strong>{{ contributionMetric.pointAmount || 0 }}</strong>
+        </div>
+      </div>
+      <n-data-table
+        :columns="behaviorColumns"
+        :data="behaviorEvents"
+        :pagination="false"
+        :loading="behaviorLoading"
+        :scroll-x="900"
+        size="small"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { NAvatar, NTag, NButton, NSpin, NSelect, NInput, NInputNumber, NDatePicker, NCheckbox } from 'naive-ui'
+import { h, ref, reactive, onMounted, computed } from 'vue'
+import { NAvatar, NTag, NButton, NSpin, NSelect, NInput, NInputNumber, NDatePicker, NCheckbox, NDataTable } from 'naive-ui'
 import { apiGetUserDetail, apiGetAssignableRoles, apiAddUserRole, apiRemoveUserRole, apiRevokeViolation, apiRecordViolation, apiUpdateUser, apiUpdateRoleExpire } from '~/composables/Api/Admin/userManage'
+import { apiGetBehaviorEvents, apiGetContributionSummary } from '~/composables/Api/Admin/behavior'
 
 const route = useRoute()
 const defaultAvatar = '/default-avatar.png'
@@ -171,6 +204,9 @@ const loading = ref(true)
 const saving = ref(false)
 const user = ref(null)
 const violations = ref([])
+const behaviorEvents = ref([])
+const behaviorLoading = ref(false)
+const contributionMetric = ref({})
 const addRoleId = ref(null)
 const addExpireTimestamp = ref(null)
 const addPermanent = ref(false)
@@ -217,6 +253,15 @@ const violationTypeOptions = [
   { label: '其他', value: 4 },
 ]
 
+const behaviorColumns = [
+  { title: '时间', key: 'happenTime', width: 170, render: row => formatDisplayTime(row.happenTime) },
+  { title: '模块', key: 'module', width: 130 },
+  { title: '动作', key: 'actionType', width: 100 },
+  { title: '资源', key: 'resourceName', minWidth: 180, ellipsis: { tooltip: true }, render: row => row.resourceName || row.resourceId || '-' },
+  { title: '状态', key: 'status', width: 90, render: row => h(NTag, { type: isBehaviorSuccess(row.status) ? 'success' : 'error', size: 'small' }, { default: () => row.status || '-' }) },
+  { title: '耗时', key: 'durationMs', width: 90, render: row => `${row.durationMs || 0} ms` },
+]
+
 function roleTagType(level) {
   if (level >= 5) return 'error'
   if (level >= 3) return 'warning'
@@ -240,6 +285,15 @@ function getViolationTypeName(type) {
 
 function goBack() { navigateTo('/admin/users') }
 
+function formatDisplayTime(value) {
+  if (!value) return '-'
+  return String(value).replace('T', ' ').slice(0, 19)
+}
+
+function isBehaviorSuccess(status) {
+  return status === 'SUCCESS' || status === '成功' || status === '0'
+}
+
 function fillEditForm() {
   if (!user.value) return
   editForm.username = user.value.username || ''
@@ -262,6 +316,25 @@ async function loadDetail() {
     violations.value = []
   } finally {
     loading.value = false
+  }
+}
+
+async function loadBehaviorProfile() {
+  const userId = Number(route.params.id)
+  if (!userId) return
+  behaviorLoading.value = true
+  try {
+    const [eventRes, contributionRes] = await Promise.all([
+      apiGetBehaviorEvents({ userId, pageNum: 1, pageSize: 8 }),
+      apiGetContributionSummary({ contributorUserId: userId })
+    ])
+    behaviorEvents.value = eventRes?.data?.rows || []
+    contributionMetric.value = contributionRes?.data?.[0] || {}
+  } catch {
+    behaviorEvents.value = []
+    contributionMetric.value = {}
+  } finally {
+    behaviorLoading.value = false
   }
 }
 
@@ -379,7 +452,7 @@ async function handleRevoke(violation) {
   } catch (e) { alert(e?.data?.msg || '撤销失败') }
 }
 
-onMounted(() => { loadDetail(); loadAssignableRoles() })
+onMounted(() => { loadDetail(); loadAssignableRoles(); loadBehaviorProfile() })
 useHead({ title: '用户详情' })
 </script>
 
@@ -409,7 +482,12 @@ useHead({ title: '用户详情' })
 
 .section-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-actions { display: flex; align-items: center; gap: 8px; }
 .section-title { font-size: 1rem; font-weight: 600; color: #1e293b; margin: 0; }
+.behavior-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.behavior-metric { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; }
+.behavior-metric span { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.behavior-metric strong { font-size: 18px; color: #1e293b; }
 
 .role-list { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .role-item-wrap { display: flex; align-items: center; gap: 4px; }

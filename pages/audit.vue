@@ -348,15 +348,22 @@ function confirmAudit(row, status) {
 
 async function audit(row, status) {
   try {
-    await apiAuditResource({
+    const res = await apiAuditResource({
       resourceType: query.resourceType,
       resourceId: row.id,
       status,
     });
+    assertSuccessResponse(res);
     message.success(isPublishedStatus(status) ? '审核通过' : '已拒绝');
     fetchList();
   } catch (error) {
     message.error(resolveErrorMessage(error, '审核失败'));
+  }
+}
+
+function assertSuccessResponse(res) {
+  if (res && Number(res.code) !== 200) {
+    throw new Error(res.msg || res.data || '审核失败');
   }
 }
 
