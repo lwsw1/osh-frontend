@@ -12,8 +12,8 @@
     <section class="book-results-shell">
       <div class="results-head">
         <div>
-          <p class="results-label">Query Result</p>
-          <h3>共找到 {{ total }} 本电子书</h3>
+          <h2>全部电子书</h2>
+          <p>共 {{ total }} 本</p>
         </div>
         <div class="results-side">
           <span>第 {{ page }} / {{ totalPages }} 页</span>
@@ -234,14 +234,7 @@ definePageMeta({
 }
 
 .book-results-shell {
-  margin-top: 24px;
-  padding: 28px;
-  border-radius: 32px;
-  background:
-    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 100%);
-  border: 1px solid rgba(15, 23, 42, 0.07);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  margin-top: 30px;
 }
 
 .results-head {
@@ -249,38 +242,38 @@ definePageMeta({
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.results-label {
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  color: #0f766e;
-  text-transform: uppercase;
-}
-
-.results-head h3 {
+.results-head h2 {
   margin: 0;
-  font-size: 28px;
-  color: #10213a;
+  color: #111827;
+  font-size: 20px;
+}
+
+.results-head p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .results-side {
   color: #64748b;
-  font-weight: 600;
+  font-size: 13px;
 }
 
 .book-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 
 .book-skeleton {
-  min-height: 280px;
-  border-radius: 28px;
+  min-height: 224px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   background: linear-gradient(90deg, rgba(226, 232, 240, 0.8), rgba(241, 245, 249, 1), rgba(226, 232, 240, 0.8));
   background-size: 240% 100%;
   animation: shimmer 1.4s linear infinite;
@@ -308,18 +301,18 @@ definePageMeta({
   }
 }
 
-@media (max-width: 960px) {
-  .book-results-shell {
-    padding: 20px;
-    border-radius: 24px;
-  }
-
+@media (max-width: 1180px) {
   .results-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .book-grid,
+  .book-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
   .list-grid {
     grid-template-columns: 1fr;
   }

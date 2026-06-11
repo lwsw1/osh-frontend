@@ -234,6 +234,7 @@ async function refreshCoverUrls() {
 
 onMounted(() => {
   triggerCourseEsSync();
+  loadTags();
   loadCourses();
 });
 
@@ -241,6 +242,7 @@ onMounted(() => {
 // 补充 onActivated 强制拉新，避免列表卡片仍显示旧状态/旧标题。
 onActivated(() => {
   triggerCourseEsSync();
+  loadTags();
   loadCourses();
 });
 
@@ -399,8 +401,6 @@ const loadTags = async () => {
     console.error('加载标签失败', e);
   }
 };
-if (process.client) loadTags();
-
 // --- 逻辑函数 ---
 
 const handleSearch = () => {
@@ -418,6 +418,7 @@ const handleCreateSuccess = async () => {
   lastEsSyncAt = 0;
   await triggerCourseEsSync();
   queryParams.pageNum = 1;
+  await loadTags();
   await loadCourses();
 };
 

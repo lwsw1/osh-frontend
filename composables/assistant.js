@@ -196,9 +196,27 @@ export function apiPageFeedback(params) {
 
 /**
  * 拉取反馈公告。
+ * @param {number} limit - 返回条数
+ * @param {number} [channel] - 公告频道（1=系统通知, 2=业务公告），默认 1
  */
-export function apiGetFeedbackAnnouncements(limit = 10) {
+export function apiGetFeedbackAnnouncements(limit = 10, channel) {
+  const query = { limit }
+  if (channel != null) {
+    query.channel = channel
+  }
   return assistantFetch('/feedback/announcement/list', {
+    query,
+  })
+}
+
+/**
+ * 获取反馈互动动态列表（点赞、收藏等事件）
+ *
+ * @param {number} [limit=10] - 返回条数
+ * @returns {Promise} 动态事件列表
+ */
+export function apiGetFeedbackDynamics(limit = 10) {
+  return assistantFetch('/feedback/dynamics/list', {
     query: { limit },
   })
 }
@@ -262,51 +280,12 @@ export function apiCreateComment(feedbackId, payload) {
 // ==================== 反馈系统 - 管理员接口 ====================
 
 /**
- * 反馈管理列表（分页）
- */
-export function apiAdminPageFeedback(params) {
-  return assistantFetch('/admin/feedback/page', {
-    method: 'POST',
-    body: params,
-  })
-}
-
-/**
- * 置顶反馈
- */
-export function apiPinFeedback(feedbackId, pinOrder) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/pin`, {
-    method: 'POST',
-    params: { pinOrder },
-  })
-}
-
-/**
- * 取消置顶
- */
-export function apiUnpinFeedback(feedbackId) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/unpin`, {
-    method: 'POST',
-  })
-}
-
-/**
  * 更新反馈状态
  */
 export function apiUpdateFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/admin/feedback/${feedbackId}/status`, {
     method: 'POST',
     body: payload,
-  })
-}
-
-/**
- * 追加处理备注（不改变状态）
- */
-export function apiAppendFeedbackRemark(feedbackId, remark) {
-  return assistantFetch(`/admin/feedback/${feedbackId}/remark`, {
-    method: 'POST',
-    body: { remark },
   })
 }
 
@@ -327,15 +306,6 @@ export function apiConfirmFeedbackStatus(feedbackId, payload) {
   return assistantFetch(`/assistant/feedback/${feedbackId}/confirm`, {
     method: 'POST',
     body: payload,
-  })
-}
-
-/**
- * 删除反馈
- */
-export function apiDeleteFeedback(feedbackId) {
-  return assistantFetch(`/admin/feedback/${feedbackId}`, {
-    method: 'DELETE',
   })
 }
 
@@ -374,37 +344,5 @@ export function apiFavoriteFeedback(feedbackId) {
 export function apiUnfavoriteFeedback(feedbackId) {
   return assistantFetch(`/feedback/${feedbackId}/favorite`, {
     method: 'DELETE',
-  })
-}
-
-// ==================== MCP 调试测试接口 ====================
-
-/**
- * 健康检查
- */
-export function apiMcpHealthCheck() {
-  return $fetch('/public/mcp-debug/health', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
-}
-
-/**
- * 数据库连接测试
- */
-export function apiMcpTestDatabase() {
-  return $fetch('/public/mcp-debug/test-database', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
-  })
-}
-
-/**
- * 完整链路测试
- */
-export function apiMcpTestFullChain() {
-  return $fetch('/public/mcp-debug/test-full-chain', {
-    baseURL: fetchConfig.baseURL,
-    headers: { appid: fetchConfig.headers.appid },
   })
 }
