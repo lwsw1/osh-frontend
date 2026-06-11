@@ -1,5 +1,11 @@
 <template>
   <div class="user-manage-page">
+    <nav class="admin-subnav" aria-label="后台管理导航">
+      <nuxt-link to="/admin/users" class="admin-subnav-item active">用户管理</nuxt-link>
+      <nuxt-link to="/admin/behavior" class="admin-subnav-item">行为数据</nuxt-link>
+      <nuxt-link to="/admin/contribution" class="admin-subnav-item">贡献统计</nuxt-link>
+    </nav>
+
     <h2 class="page-title">
       用户管理
       <n-button type="primary" size="small" class="invite-btn" @click="showInviteModal = true">
@@ -342,6 +348,43 @@ useHead({ title: '用户管理' })
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px;
+}
+
+.admin-subnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.admin-subnav-item {
+  min-width: 88px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 6px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.admin-subnav-item:hover {
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.admin-subnav-item.active {
+  color: #1d4ed8;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .page-title {
