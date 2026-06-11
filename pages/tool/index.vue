@@ -269,7 +269,8 @@
                     <component
                       :is="getRuntimeComponent(item)"
                       v-else-if="getRuntimeComponent(item)"
-                      @used="handleToolUsed(item)"
+                      :tool-id="item.id"
+                      @refresh-quota="refreshCurrentToolQuota"
                     />
                     <div v-else class="tool-empty-url">
                       该工具暂未配置可加载的工具文件
@@ -590,6 +591,10 @@ const loadCurrentToolQuota = async () => {
   }
 };
 
+const refreshCurrentToolQuota = async () => {
+  await loadCurrentToolQuota();
+};
+
 const loadToolSystemAnnouncements = async () => {
   try {
     const res = await apiToolSystemAnnouncements();
@@ -875,11 +880,31 @@ const handleOpenTool = (item) => {
   navigateTo(`/tool/detail/${item.id}`);
 };
 
+const canExpandTool = (item) => {
+  if (!item) {
+    return false;
+  }
+  if (item.resourceType === 'FREE') {
+    return true;
+  }
+  const currentLevel = Number(getUserMemberLevel() || 0);
+  const requiredLevel = Number(item.level || 0);
+  if (currentLevel > requiredLevel) {
+    return true;
+  }
+  return Number(currentToolQuota.remainingCount || 0) > 0;
+};
+
 const toggleExpand = (item) => {
+  const { message } = createDiscreteApi(['message']);
   const nextExpanded = !item.isExpanded;
+  if (nextExpanded && !canExpandTool(item)) {
+    message.warning('当前工具点数不足，无法展开该工具');
+    return;
+  }
   toolList.value = toolList.value.map((tool) => ({
     ...tool,
-    isExpanded: tool.id === item.id ? nextExpanded : false,
+    isExpanded: tool.id === item.id ? nextExpanded : tool.isExpanded,
   }));
   if (nextExpanded) {
     const current = toolList.value.find((tool) => tool.id === item.id);
