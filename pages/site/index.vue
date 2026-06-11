@@ -22,7 +22,17 @@
                     style="width: 120px; margin-right: 8px;" @update:value="handleSearch" />
                 <n-select v-model:value="searchForm.siteType" placeholder="网站类型" :options="siteTypeOptions" clearable
                     style="width: 140px; margin-right: 8px;" @update:value="handleSearch" />
-                <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">搜索</n-button>
+                <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">
+                                        <template #icon><n-icon>
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Search />
+                                </template>
+                                搜索
+                        </n-tooltip>
+                        </n-icon>
+                    </template>
+                    </n-button>
                 <n-button type="primary" @click="handleRefreshAll" style="margin-right: 8px;" :loading="checkingAll">
                     <template #icon><n-icon>
                         <n-tooltip trigger="hover">
