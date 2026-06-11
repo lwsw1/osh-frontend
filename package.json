@@ -4,7 +4,6 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate"
   },
-
   "dependencies": {
     "@css-render/vue3-ssr": "^0.15.10",
     "@monaco-editor/loader": "^1.7.0",
@@ -21,6 +20,7 @@
     "nuxt-windicss": "^2.2.0",
     "qrcode": "^1.5.4",
     "quill": "^2.0.3",
+    "sortablejs": "^1.15.7",
     "windicss": "^3.5.1"
   },
   "devDependencies": {
