@@ -8,10 +8,9 @@
         </div>
         <!-- 页面头部 -->
         <div class="site-header">
-            <h2 class="site-title">内部网站</h2>
             <div class="site-header-actions">
                 <n-input v-model:value="searchForm.siteName" placeholder="搜索网站名称" clearable
-                    style="width: 200px; margin-right: 8px;" @keyup.enter="handleSearch">
+                    style="width: 500px; margin-right: 8px;" @keyup.enter="handleSearch">
                     <template #prefix>
                         <n-icon>
                             <Search />
@@ -19,27 +18,52 @@
                     </template>
                 </n-input>
                 <n-select v-model:value="searchForm.status" placeholder="状态筛选" :options="statusOptions" clearable
-                    style="width: 120px; margin-right: 8px;" @update:value="handleSearch" />
-                <n-select v-model:value="searchForm.siteType" placeholder="网站类型" :options="siteTypeSearchOptions" clearable
-                    style="width: 140px; margin-right: 8px;" @update:value="handleSearch" />
-                <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">搜索</n-button>
+                    @update:value="handleSearch" />
+                <n-select v-model:value="searchForm.siteType" placeholder="网站类型" :options="siteTypeOptions" clearable
+                    @update:value="handleSearch" />
+
+                <resource-selector :model-value="searchForm.resourceFilters" @update:model-value="handleResourcesFilterUpdated"/>
+                <n-button type="primary" @click="handleSearch" style="margin-right: 8px;">
+                                        <template #icon><n-icon>
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Search />
+                                </template>
+                                搜索
+                        </n-tooltip>
+                        </n-icon>
+                    </template>
+                    </n-button>
                 <n-button type="primary" @click="handleRefreshAll" style="margin-right: 8px;" :loading="checkingAll">
                     <template #icon><n-icon>
-                            <Refresh />
-                        </n-icon></template>
-                    刷新检查
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Refresh />
+                                </template>
+                                刷新检查
+                        </n-tooltip>
+                        </n-icon>
+                    </template>
                 </n-button>
                 <n-button type="primary" @click="openTagManageModal" style="margin-right: 8px;">
                     <template #icon><n-icon>
-                            <Add />
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Bookmark />
+                                </template>
+                                标签管理
+                        </n-tooltip>
                         </n-icon></template>
-                    管理标签
                 </n-button>
                 <n-button type="primary" @click="openAddModal">
                     <template #icon><n-icon>
-                            <Add />
+                        <n-tooltip trigger="hover">
+                                <template #trigger>
+                                     <Add />
+                                </template>
+                                新增网站
+                        </n-tooltip>
                         </n-icon></template>
-                    新增网站
                 </n-button>
             </div>
         </div>
@@ -137,6 +161,16 @@
                         <n-tag v-for="(resp, index) in site.maintainers" :key="index" size="tiny" type="success"
                             style="margin-right: 3px; margin-top: 3px;">{{ resp.userName }}</n-tag>
                     </div>
+
+                    <!-- 关联的资源 -->
+                    <div class="site-resources" v-if="site.resources && site.resources.length > 0">
+                        <n-tag v-for="(res, index) in site.resources" :key="index" size="tiny" type="success"
+                            style="margin-right: 3px; margin-top: 3px;">
+                            <span v-on:click="handleResourceClicked(res)" class="resource-link">
+                                {{ res.resourceName }}
+                            </span>
+                        </n-tag>
+                    </div>
                     <!-- 最后检查时间 -->
                     <div class="site-last-check">
                         最后检查于：<n-icon size="10" color="#6b7280">
@@ -199,6 +233,9 @@
                             管理标签
                         </n-button>
                     </div>
+                </n-form-item>
+                <n-form-item label="关联资源" path="relatedResources">
+                    <resource-selector :model-value="formData.relatedResources" @update:model-value="handleRelatedResourcesUpdated"/>
                 </n-form-item>
             </n-form>
             <template #footer>
@@ -263,7 +300,8 @@ import {
     NIcon, createDiscreteApi, NDataTable, NTooltip
 } from 'naive-ui'
 import SiteDemoConfigForm from './SiteDemoConfigForm.vue'
-import { Search, Add, Globe, CreateOutline, TrashOutline, Refresh, TimeOutline, PlayCircleOutline, CheckmarkCircleOutline, StopCircleOutline } from '@vicons/ionicons5'
+import ResourceSelector from './ResourceSelector.vue'
+import { Search, Add, Globe, CreateOutline, Bookmark, TrashOutline, Refresh, TimeOutline, PlayCircleOutline, CheckmarkCircleOutline, StopCircleOutline } from '@vicons/ionicons5'
 import { h } from 'vue'
 
 const preContent = (text) => () => h('pre', { style: 'white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; margin: 0; font-family: inherit;' }, text)
@@ -283,6 +321,16 @@ function handleCoverUploaded(file) {
     if (file) {
         formData.cover = file.userData.url
     }
+}
+
+function handleRelatedResourcesUpdated(value) {
+    formData.relatedResources = value
+}
+
+function handleResourcesFilterUpdated(value) {
+    searchForm.resourceFilters = value.map(res => {
+        return res[0] + '|' + res[1]
+    })
 }
 
 function handlemaintainerUserIdsUpdated(value) {
@@ -307,12 +355,8 @@ const searchForm = reactive({
     siteName: '',
     status: null,
     siteType: null,
+    resourceFilters: [], // 资源筛选条件
 })
-
-// 网站类型搜索选项
-const siteTypeSearchOptions = [
-    { label: '演示站点', value: 'demo' }
-]
 
 // 弹窗
 const showModal = ref(false)
@@ -331,7 +375,8 @@ const defaultFormData = () => ({
     maintainerUserIds: [],
     tags: [],
     status: 1,
-    siteConfig: {}
+    siteConfig: {},
+    relatedResources: [],
 })
 
 const formData = reactive(defaultFormData())
@@ -395,6 +440,12 @@ const tagColumns = [
     }
 ]
 
+function handleResourceClicked(res) {
+    if (res.jumpingUrl) {
+    window.open(res.jumpingUrl, '_blank')
+}
+}
+
 const formRules = {
     siteName: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
     siteUrl: [
@@ -414,7 +465,9 @@ async function loadList() {
         if (searchForm.siteName) query.siteName = searchForm.siteName
         if (searchForm.status !== null) query.status = searchForm.status
         if (searchForm.siteType) query.siteType = searchForm.siteType
-
+        if (searchForm.resourceFilters.length > 0) {
+            query.resourceFilters = searchForm.resourceFilters
+        }
         const { data } = await useSiteInfoListApi(query)
         if (data.value ) {
             const sites = data.value.rows || []
@@ -449,7 +502,6 @@ function openEditModal(site) {
     isEdit.value = true
     modalTitle.value = '编辑网站'
     isUpdate.value = true
-
     let maintainerUserIds = site.maintainerUserIds || []
     let siteUrl = site.siteUrl || ''
     // 获取网站链接地址(有权限校验)
@@ -468,7 +520,8 @@ function openEditModal(site) {
                 tags: tags,
                 maintainerUserIds: maintainerUserIds,
                 status: siteInfo.status ?? 1,
-                siteConfig: siteInfo.siteConfig || {}
+                siteConfig: siteInfo.siteConfig || {},
+                relatedResources: site.relatedResources || [],
             })
             showModal.value = true
         }
@@ -491,11 +544,14 @@ async function handleSubmit() {
                 }
             )
         }
+        const req = { ...formData }
+
+        debugger
         if (isEdit.value) {
-            await useSiteInfoUpdateApi({ ...formData })
+            await useSiteInfoUpdateApi(req)
             message.success('修改成功')
         } else {
-            await useSiteInfoAddApi({ ...formData })
+            await useSiteInfoAddApi(req)
             message.success('新增成功')
         }
         showModal.value = false
@@ -1125,6 +1181,20 @@ width: 100%;
     flex-wrap: wrap;
     gap: 4px;
     min-height: 0;
+}
+
+.site-resources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 0;
+}
+
+.resource-link {
+  color: #1890ff; /* Naive UI / antd 标准链接蓝 */
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease-in-out;
 }
 
 .site-responsibles .n-tag {
