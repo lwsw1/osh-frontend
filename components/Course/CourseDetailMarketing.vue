@@ -7,7 +7,21 @@
       </div>
       <div class="info-box">
         <h1 class="course-title">{{ data.title }}</h1>
-        <p class="course-desc">{{ data.intro || data.desc || '暂无介绍' }}</p>
+        <n-tooltip
+          trigger="hover"
+          placement="bottom-start"
+          :disabled="!isIntroTruncated"
+          :style="{ maxWidth: '520px' }"
+        >
+          <template #trigger>
+            <p
+              ref="descRef"
+              class="course-desc"
+              :class="{ 'course-desc--truncated': isIntroTruncated }"
+            >{{ courseIntro }}</p>
+          </template>
+          <div class="course-desc-tooltip">{{ courseIntro }}</div>
+        </n-tooltip>
         <div class="meta-row">
           <span class="meta-item">约 {{ data.buyCount || 0 }} 人学习</span>
           <span class="meta-sep">·</span>
@@ -58,9 +72,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
-import { NButton, NIcon } from 'naive-ui';
+import { NButton, NIcon, NTooltip } from 'naive-ui';
 import { CreateOutline } from '@vicons/ionicons5';
 import CourseOutlineManager from '~/components/Course/edit/CourseOutlineManager.vue';
 import CourseEditModal from '~/components/Course/CourseEditModal.vue';
@@ -89,6 +103,23 @@ const isPaid = computed(() =>
   props.isPaid || props.data?.buyFlag === 1 || props.data?.accessLevel === 'FULL',
 );
 const editMode = ref(false);
+const descRef = ref<HTMLElement | null>(null);
+const isIntroTruncated = ref(false);
+const courseIntro = computed(() => props.data?.intro || props.data?.desc || '暂无介绍');
+
+function checkIntroTruncated() {
+  const el = descRef.value;
+  if (!el || courseIntro.value === '暂无介绍') {
+    isIntroTruncated.value = false;
+    return;
+  }
+  isIntroTruncated.value = el.scrollHeight > el.clientHeight + 1;
+}
+
+let descResizeObserver: ResizeObserver | null = null;
+
+watch(courseIntro, () => nextTick(checkIntroTruncated));
+
 const courseStatusCode = computed(() => Number(props.data?.status));
 const courseStatusText = computed(() => COURSE_STATUS_TEXT_MAP[courseStatusCode.value] || `状态${props.data?.status ?? '-'}`);
 const courseStatusTone = computed(() => {
@@ -109,6 +140,18 @@ const courseMaterials = ref<any[]>([]);
 
 onMounted(() => {
   coverUrl.value = props.data?.cover || '';
+  nextTick(() => {
+    checkIntroTruncated();
+    if (typeof ResizeObserver !== 'undefined' && descRef.value) {
+      descResizeObserver = new ResizeObserver(() => checkIntroTruncated());
+      descResizeObserver.observe(descRef.value);
+    }
+  });
+});
+
+onUnmounted(() => {
+  descResizeObserver?.disconnect();
+  descResizeObserver = null;
 });
 
 // props.data.cover 变化时（保存后父组件刷新数据）直接更新
@@ -300,7 +343,25 @@ function onEditSuccess() {
   gap: 10px;
 }
 .course-title { font-size: 22px; font-weight: 700; margin: 0; color: #1a1a1a; }
-.course-desc { font-size: 14px; color: #666; margin: 0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.course-desc {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: default;
+}
+.course-desc--truncated {
+  cursor: help;
+}
+.course-desc-tooltip {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-width: 520px;
+}
 .meta-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #888; }
 .meta-sep { color: #ddd; }
 .price-text { color: #18a058; font-weight: 600; }

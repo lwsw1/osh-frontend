@@ -112,7 +112,14 @@
 
   <!-- 视频预览 -->
   <n-modal v-model:show="showPreview" preset="card" title="视频预览" style="width:760px">
-    <video v-if="videoInfo?.videoUrl" :src="videoInfo.videoUrl" controls style="width:100%;border-radius:4px" />
+    <video
+      v-if="videoInfo?.videoUrl"
+      :src="videoInfo.videoUrl"
+      controls
+      controlsList="nodownload"
+      oncontextmenu="return false"
+      style="width:100%;border-radius:4px"
+    />
   </n-modal>
 </template>
 
