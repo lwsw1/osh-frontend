@@ -146,7 +146,14 @@
           <div class="video-wrap">
             <!-- 有有效视频：显示播放器 -->
             <template v-if="validVideoUrl">
-              <video ref="videoEl" :src="validVideoUrl" controls class="video-player" />
+              <video
+                ref="videoEl"
+                :src="validVideoUrl"
+                controls
+                controlsList="nodownload"
+                oncontextmenu="return false"
+                class="video-player"
+              />
               <div v-if="videoUploading" class="upload-overlay">
                 <n-spin size="medium" />
                 <p class="upload-progress-text">上传中 {{ uploadProgress }}%</p>
