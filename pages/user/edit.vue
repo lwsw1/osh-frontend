@@ -12,6 +12,24 @@
                 <n-form-item label="昵称" path="nickname">
                     <n-input v-model:value="form.nickname" placeholder="请输入昵称"/>
                 </n-form-item>
+                <n-form-item label="GitHub账号" path="githubAccount">
+                    <n-input
+                        v-model:value="form.githubAccount"
+                        placeholder="请输入 GitHub 账号"
+                        maxlength="100"
+                        show-count
+                        clearable
+                    />
+                </n-form-item>
+                <n-form-item label="微信名称" path="wechatName">
+                    <n-input
+                        v-model:value="form.wechatName"
+                        placeholder="请输入微信名称"
+                        maxlength="100"
+                        show-count
+                        clearable
+                    />
+                </n-form-item>
                 <n-form-item label="性别" path="sex">
                     <n-radio-group v-model:value="form.sex" name="sex">
                         <n-space>
@@ -116,16 +134,24 @@ import {
 const user = useUser()
 const formRef = ref(null)
 const form = reactive({
+    username:"",
     avatar:"",
     nickname:"",
-    sex:""
+    sex:"",
+    introduction:"",
+    githubAccount:"",
+    wechatName:""
 })
 
 // 初始化form
 if(user.value){
+    form.username = user.value.username
     form.avatar = user.value.avatar
     form.nickname = user.value.nickname
     form.sex = user.value.sex
+    form.introduction = user.value.introduction
+    form.githubAccount = user.value.githubAccount
+    form.wechatName = user.value.wechatName
 }
 
 const rules = {
@@ -159,7 +185,13 @@ const onSubmit = ()=>{
         const {
             data,
             error
-        } = await useUpdateUserInfoApi(form)
+        } = await useUpdateUserInfoApi({
+            username: form.username || user.value?.username,
+            sex: form.sex,
+            introduction: form.introduction,
+            githubAccount: form.githubAccount,
+            wechatName: form.wechatName,
+        })
         loading.value = false
 
         if(error.value){

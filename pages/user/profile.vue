@@ -77,6 +77,26 @@
                 <n-input :value="user?.email || '未绑定'" disabled />
             </n-form-item>
 
+            <n-form-item label="GitHub账号" path="githubAccount">
+                <n-input
+                    v-model:value="form.githubAccount"
+                    placeholder="请输入 GitHub 账号"
+                    maxlength="100"
+                    show-count
+                    clearable
+                />
+            </n-form-item>
+
+            <n-form-item label="微信名称" path="wechatName">
+                <n-input
+                    v-model:value="form.wechatName"
+                    placeholder="请输入微信名称"
+                    maxlength="100"
+                    show-count
+                    clearable
+                />
+            </n-form-item>
+
             <!-- 性别 -->
             <n-form-item label="性别" path="sex">
                 <n-radio-group v-model:value="form.sex" name="sex">
@@ -235,6 +255,8 @@ const form = reactive({
     username:     user.value?.username     || '',
     sex:          user.value?.sex          || '未知',
     introduction: user.value?.introduction || '',
+    githubAccount: user.value?.githubAccount || '',
+    wechatName:    user.value?.wechatName    || '',
 })
 
 const sexOptions = [
@@ -271,6 +293,8 @@ const onSubmit = () => {
             username:     form.username,
             sex:          form.sex,
             introduction: form.introduction,
+            githubAccount: form.githubAccount,
+            wechatName:    form.wechatName,
         })
 
         loading.value = false
