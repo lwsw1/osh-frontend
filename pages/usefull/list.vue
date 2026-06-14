@@ -66,9 +66,25 @@
     >
       <template #actions>
         <ClientOnly>
-          <button v-if="canSubmit" class="btn-create" @click="goCreate">
-            + 提交网站
+          <!-- 下载模板 -->
+          <button v-if="canDownloadTpl" class="btn-tpl" @click="handleDownloadTemplate">
+            📥 导入模板
           </button>
+          <!-- 普通用户批量导入 -->
+          <button v-if="canImport" class="btn-import" :disabled="importLoading" @click="triggerImport(false)">
+            {{ importLoading ? '导入中...' : '📤 批量导入' }}
+          </button>
+          <!-- 管理员批量导入（直接发布） -->
+          <button v-if="canImportAdmin" class="btn-import-admin" :disabled="importLoading" @click="triggerImport(true)">
+            {{ importLoading ? '导入中...' : '⚡ 管理员导入' }}
+          </button>
+          <!-- 新增网站 -->
+          <button v-if="canSubmit" class="btn-create" @click="goCreate">
+            + 新增网站
+          </button>
+          <!-- 隐藏 file input -->
+          <input ref="importFileRef" type="file" accept=".xlsx" style="display:none" @change="e => handleImportFile(e, false)" />
+          <input ref="importAdminFileRef" type="file" accept=".xlsx" style="display:none" @change="e => handleImportFile(e, true)" />
         </ClientOnly>
       </template>
     </UseFullFilter>
@@ -190,12 +206,37 @@
         />
       </div>
     </div>
+
+    <!-- 导入结果弹窗 -->
+    <n-modal v-model:show="showImportResult" preset="card" title="导入结果" style="width:560px;max-width:95vw">
+      <div v-if="importResult">
+        <div class="import-result-summary">
+          <span class="result-ok">✅ 成功 {{ importResult.successCount || 0 }} 条</span>
+          <span v-if="importResult.failCount" class="result-fail">❌ 失败 {{ importResult.failCount }} 条</span>
+        </div>
+        <div v-if="importResult.failDetails?.length" class="import-fail-list">
+          <div class="fail-list-title">失败明细：</div>
+          <div
+            v-for="(d, i) in importResult.failDetails"
+            :key="i"
+            class="fail-item"
+          >
+            <span class="fail-row">第 {{ d.rowNum }} 行</span>
+            <span class="fail-name">{{ d.websiteName || '未知' }}</span>
+            <span class="fail-reason">{{ d.reason }}</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <n-button type="primary" @click="showImportResult = false">关闭</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { createDiscreteApi, NPagination, NSpin, NEmpty, NTag } from 'naive-ui'
+import { createDiscreteApi, NPagination, NSpin, NEmpty, NTag, NModal, NButton } from 'naive-ui'
 import UseFullFilter from '~/components/UseFull/Filter.vue'
 import {
   apiWebsiteTags,
@@ -207,13 +248,26 @@ import {
   apiWebsiteRating,
   apiWebsiteNotices,
   apiWebsiteDynamics,
+  apiWebsiteImportTemplate,
+  apiWebsiteImport,
+  apiWebsiteImportAdmin,
 } from '~/composables/Api/UseFull/usefull'
 
 const { permissionList } = usePermission()
 
-const canSubmit   = computed(() => permissionList.value.includes('website:submit'))
-const canFavorite = computed(() => permissionList.value.includes('website:favorite'))
-const canRating   = computed(() => permissionList.value.includes('website:rating:submit'))
+const canSubmit      = computed(() => permissionList.value.includes('website:submit'))
+const canFavorite    = computed(() => permissionList.value.includes('website:favorite'))
+const canRating      = computed(() => permissionList.value.includes('website:rating:submit'))
+const canImport      = computed(() => permissionList.value.includes('website:import'))
+const canImportAdmin = computed(() => permissionList.value.includes('website:import:admin'))
+const canDownloadTpl = computed(() => true)
+
+// 批量导入状态
+const importLoading   = ref(false)
+const showImportResult = ref(false)
+const importResult    = ref(null)  // { successCount, failCount, failDetails }
+const importFileRef   = ref(null)  // 隐藏 file input（普通）
+const importAdminFileRef = ref(null) // 隐藏 file input（管理员）
 
 // ── 公告 & 动态（调真实接口）──
 const noticeItems = ref([])
@@ -452,6 +506,72 @@ const handleRating = async (item, ratingType) => {
     }
     item[countKey[ratingType]] = Math.max(0, (item[countKey[ratingType]] || 0) - 1)
     message.error('请求失败')
+  }
+}
+
+// 下载导入模板
+const handleDownloadTemplate = async () => {
+  const { message } = createDiscreteApi(['message'])
+  try {
+    const { blob, fileName } = await apiWebsiteImportTemplate()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    message.error('下载模板失败，请稍后重试')
+  }
+}
+
+// 触发文件选择
+const triggerImport = (isAdmin = false) => {
+  if (isAdmin) importAdminFileRef.value?.click()
+  else importFileRef.value?.click()
+}
+
+// 处理文件选择后上传
+const handleImportFile = async (e, isAdmin = false) => {
+  const { message } = createDiscreteApi(['message'])
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (!file.name.endsWith('.xlsx')) {
+    message.error('请上传 .xlsx 格式的文件')
+    e.target.value = ''
+    return
+  }
+  importLoading.value = true
+  importResult.value = null
+  try {
+    const res = isAdmin
+      ? await apiWebsiteImportAdmin(file)
+      : await apiWebsiteImport(file)
+    if (res?.code === 200) {
+      importResult.value = res.data || {}
+      showImportResult.value = true
+      if ((res.data?.failCount || 0) === 0) {
+        message.success(res.msg || `导入成功 ${res.data?.successCount} 条`)
+      } else {
+        message.warning(res.msg || `导入完成，有 ${res.data?.failCount} 条失败`)
+      }
+      await loadList()
+    } else {
+      message.error(res?.msg || '导入失败')
+    }
+  } catch (err) {
+    const status = err?.response?.status || err?.status
+    const msg = err?.data?.msg || err?.message
+    if (status === 401) {
+      message.error('登录已过期，请重新登录')
+    } else if (status === 403) {
+      message.error('没有导入权限，请联系管理员开通权限')
+    } else {
+      message.error(msg || '导入失败，请稍后重试')
+    }
+  } finally {
+    importLoading.value = false
+    e.target.value = ''
   }
 }
 
@@ -768,6 +888,74 @@ onMounted(() => {
   transition: background 0.2s;
 }
 .btn-create:hover { background: #0e7a3e; }
+
+/* 下载模板按钮 */
+.btn-tpl {
+  background: #fff;
+  color: #555;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-tpl:hover { border-color: #18a058; color: #18a058; }
+
+/* 批量导入按钮 */
+.btn-import {
+  background: #fff;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-import:hover { background: #eff6ff; }
+.btn-import:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* 管理员导入按钮 */
+.btn-import-admin {
+  background: #fff;
+  color: #f59e0b;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-import-admin:hover { background: #fffbeb; }
+.btn-import-admin:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* 导入结果弹窗 */
+.import-result-summary {
+  display: flex;
+  gap: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.result-ok   { color: #18a058; }
+.result-fail { color: #ef4444; }
+.import-fail-list { border-top: 1px solid #f0f0f0; padding-top: 12px; }
+.fail-list-title { font-size: 13px; color: #666; margin-bottom: 8px; }
+.fail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #fafafa;
+  font-size: 13px;
+}
+.fail-row    { color: #999; flex-shrink: 0; width: 56px; }
+.fail-name   { color: #333; font-weight: 500; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fail-reason { color: #ef4444; flex: 1; }
 
 /* 空状态 */
 .empty-placeholder {

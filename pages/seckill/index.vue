@@ -340,7 +340,7 @@ onUnmounted(() => {
 
 // ── 公告栏：调新接口，直接取 title 展示 ──────────────────────
 const noticeItems = ref([])
-const noticeDuration = computed(() => Math.max(20, noticeItems.value.length * 6))
+const noticeDuration = computed(() => Math.max(60, noticeItems.value.length * 10))
 const noticePaused = ref(false)
 
 async function loadNoticeItems() {
@@ -364,7 +364,7 @@ async function loadNoticeItems() {
 
 // ── 动态栏：调后端接口，直接取 title 展示 ────────────────────
 const dynamicItems = ref([])
-const dynamicDuration = computed(() => Math.max(25, dynamicItems.value.length * 5))
+const dynamicDuration = computed(() => Math.max(60, dynamicItems.value.length * 10))
 const dynamicPaused = ref(false)
 
 async function loadDynamicItems() {

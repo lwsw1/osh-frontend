@@ -116,3 +116,47 @@ export async function apiWebsiteDynamics(limit = 10) {
     params: { limit },
   })
 }
+
+/** 下载导入模板（需权限 website:import 或 website:import:admin） */
+export async function apiWebsiteImportTemplate() {
+  const headers = getWebsiteAuthHeaders()
+  const url = baseURL + '/website/import/template'
+  // 用原生 fetch 获取文件流，ofetch 不支持 blob responseType
+  const res = await fetch(url, { method: 'GET', headers })
+  if (!res.ok) throw new Error('下载模板失败')
+  const blob = await res.blob()
+  // 从 Content-Disposition 取文件名，兜底用中文名
+  const disposition = res.headers.get('content-disposition') || ''
+  const match = disposition.match(/filename\*?=(?:UTF-8''|\s*"?)([^";\s]+)/i)
+  const fileName = match ? decodeURIComponent(match[1]) : '实用网站导入模板.xlsx'
+  return { blob, fileName }
+}
+
+/** 普通用户批量导入，进审核队列（需权限 website:import） */
+export async function apiWebsiteImport(file) {
+  const headers = getWebsiteAuthHeaders()
+  // Content-Type 让浏览器自动设置 multipart boundary，不能手动指定
+  delete headers['Content-Type']
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch('/website/import', {
+    method: 'POST',
+    baseURL,
+    headers,
+    body: formData,
+  })
+}
+
+/** 管理员批量导入，直接发布（需权限 website:import:admin） */
+export async function apiWebsiteImportAdmin(file) {
+  const headers = getWebsiteAuthHeaders()
+  delete headers['Content-Type']
+  const formData = new FormData()
+  formData.append('file', file)
+  return $fetch('/website/import/admin', {
+    method: 'POST',
+    baseURL,
+    headers,
+    body: formData,
+  })
+}
