@@ -6,14 +6,13 @@
         v-model:value="modelValue.tags"
         multiple
         filterable
-        remote
         placeholder="选择标签筛选"
         :options="displayTagOptions"
         :loading="tagLoading"
+        :filter="filterTagOption"
         style="width: 200px"
         clearable
         :max-tag-count="1"
-        @search="handleTagSearch"
       />
 
       <!-- 排序 -->
@@ -84,13 +83,12 @@ const mapTagOptions = (list) => (list || []).map((item) => ({
   value: item.id ?? item,
 }));
 
-const loadTags = async (keyword = '') => {
+const loadTags = async () => {
   tagLoading.value = true;
   try {
     const res = await $fetch('/course/tags', {
       baseURL: fetchConfig.baseURL,
       headers: getAuthHeaders(),
-      params: keyword ? { keyword } : undefined,
     });
     const list = res?.code === 200 ? (res.data || []) : (Array.isArray(res) ? res : []);
     innerTagOptions.value = mapTagOptions(list);
@@ -107,12 +105,11 @@ const displayTagOptions = computed(() => {
   return innerTagOptions.value;
 });
 
-let tagSearchTimer = null;
-const handleTagSearch = (query) => {
-  if (tagSearchTimer) clearTimeout(tagSearchTimer);
-  tagSearchTimer = setTimeout(() => {
-    loadTags(String(query || '').trim());
-  }, 200);
+const filterTagOption = (pattern, option) => {
+  const keyword = String(pattern || '').trim().toLowerCase();
+  if (!keyword) return true;
+  const label = String(option?.label ?? '').toLowerCase();
+  return label.includes(keyword);
 };
 
 watch(

@@ -163,6 +163,10 @@ const GroupIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', 
   h('path', { d: 'M2 14c0-2 1.5-3 4-3s4 1 4 3M8 14c0-2 1.5-3 4-3s4 1 4 3', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
 ]);
 
+const MemberIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
+  h('path', { d: 'M3 8l2-4 4 3 4-3 2 4-1.5 7h-9L3 8z', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+  h('path', { d: 'M5 11h8', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
+]);
 const ProjectIcon = () => h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', fill: 'none' }, [
   h('path', { d: 'M3 8l6-5 6 5', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
   h('path', { d: 'M9 3v12M5 11h8', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' })
@@ -211,6 +215,7 @@ const menus = ref([
   { name: '答疑', path: '/question_answer/1', match: [{ name: 'question_answer-page' }], iconComponent: QAIcon },
   { name: '秒杀', path: '/seckill', match: [{ name: 'seckill' }], iconComponent: FlashIcon },
   { name: '拼团', path: '/group', match: [{ name: 'group-index' }], iconComponent: GroupIcon },
+  { name: '会员', path: '/user/member', match: [{ name: 'user-member' }], iconComponent: MemberIcon },
   { name: '开源项目', path: '/openproject/list', match: [{ name: 'openproject-list' }], iconComponent: ProjectIcon },
   { name: '实用网站', path: '/usefull/list', match: [{ name: 'usefull-list' }], iconComponent: LinkIcon },
   { name: '工具', path: '/tool', match: [{ name: 'tool' }, { name: 'tool-page' }], iconComponent: ToolIcon },
@@ -218,6 +223,7 @@ const menus = ref([
   { name: '反馈', path: '/feedback/list', match: [{ name: 'feedback-list' }], iconComponent: FeedbackIcon },
   {
     name: '内部资源',
+    id: "innerResource",
     iconComponent: SiteIcon,
     children: [
       { name: '内部网站', path: '/site', match: [{ name: 'site-index' }] , iconComponent: SiteIcon},
@@ -225,7 +231,12 @@ const menus = ref([
     ]
   },
   { name: '审核', path: '/audit', match: [{ name: 'audit' }], iconComponent: AuditIcon },
-  { name: '后台管理', path: '/admin/users', match: [{ name: 'admin-users' }], iconComponent: AuditIcon }
+  {
+    name: '后台管理',
+    path: '/admin/users',
+    match: [{ name: 'admin-users' }, { name: 'admin-behavior' }, { name: 'admin-contribution' }, { name: 'admin-user-id' }],
+    iconComponent: AuditIcon
+  }
 ]);
 
 const SearchBarRef = ref(null);
@@ -400,35 +411,58 @@ onMounted(() => {
       menus.value.splice(auditMenuIndex, 1);
     }
   }
-
   const permissions = usePermissions()
-  const internalMenuIndex = menus.value.findIndex(item => item.name === '内部资源');
+
+  const internalMenuIndex = menus.value.findIndex(item => item.id === 'innerResource');
+
 
   if (internalMenuIndex !== -1) {
-    const internalMenu = menus.value[internalMenuIndex];
-    const visibleChildren = [];
+    let innerResMenu = menus.value[internalMenuIndex]
 
-    if (permissions.value.innerSite !== undefined) {
-      visibleChildren.push(internalMenu.children[0]);
+    if (permissions.value.innerSite === undefined || permissions.value.innerSite.length === 0) {
+
+      const internalSiteIndex = innerResMenu.children.findIndex(item => item.path === '/site');
+      if (internalSiteIndex !== -1) {
+        innerResMenu.children.splice(internalSiteIndex, 1);
+      }
+    }
+    if (permissions.value.innerResource === undefined || permissions.value.innerResource.length === 0) {
+      const internalResourceIndex = innerResMenu.children.findIndex(item => item.path === '/resource');
+      if (internalResourceIndex !== -1) {
+        innerResMenu.children.splice(internalResourceIndex, 1);
+      }
     }
 
-    if (permissions.value.internalResource !== undefined) {
-      visibleChildren.push(internalMenu.children[1]);
-    }
-
-    if (visibleChildren.length === 0) {
+    if (innerResMenu.children.length === 0) {
       menus.value.splice(internalMenuIndex, 1);
-    } else if (visibleChildren.length === 1) {
-      menus.value[internalMenuIndex] = {
-        name: visibleChildren[0].name,
-        path: visibleChildren[0].path,
-        match: visibleChildren[0].match,
-        iconComponent: SiteIcon
-      };
-    } else {
-      internalMenu.children = visibleChildren;
     }
   }
+
+  // if (internalMenuIndex !== -1) {
+  //   const internalMenu = menus.value[internalMenuIndex];
+  //   const visibleChildren = [];
+
+  //   if (permissions.value.innerSite !== undefined) {
+  //     visibleChildren.push(internalMenu.children[0]);
+  //   }
+
+  //   if (permissions.value.internalResource !== undefined) {
+  //     visibleChildren.push(internalMenu.children[1]);
+  //   }
+
+  //   if (visibleChildren.length === 0) {
+  //     menus.value.splice(internalMenuIndex, 1);
+  //   } else if (visibleChildren.length === 1) {
+  //     menus.value[internalMenuIndex] = {
+  //       name: visibleChildren[0].name,
+  //       path: visibleChildren[0].path,
+  //       match: visibleChildren[0].match,
+  //       iconComponent: SiteIcon
+  //     };
+  //   } else {
+  //     internalMenu.children = visibleChildren;
+  //   }
+  // }
 
   let isFounder = false
   if (user.value) {
@@ -441,7 +475,7 @@ onMounted(() => {
     } catch {}
   }
   if (!isFounder) {
-    const adminMenuIndex = menus.value.findIndex(item => item.path === '/admin/users')
+    const adminMenuIndex = menus.value.findIndex(item => item.name === '后台管理')
     if (adminMenuIndex !== -1) {
       menus.value.splice(adminMenuIndex, 1)
     }

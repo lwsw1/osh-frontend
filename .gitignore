@@ -11,7 +11,7 @@ bun.lock
 .output/
 .vscode/
 .idea/
-
+.kiro
 # 系统文件
 .DS_Store
 Thumbs.db
@@ -42,6 +42,11 @@ nuxt.config.ts
 # 配置文件
 tsconfig.json
 server/tsconfig.json
+
+# 本地 dev 专用（不提交远程）
+plugins/local-auth.client.js
+composables/useLocalDev.js
+middleware/local-auth.global.js
 
 #
 AGENTS.md

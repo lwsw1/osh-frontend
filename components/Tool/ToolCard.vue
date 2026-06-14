@@ -58,8 +58,7 @@ const visibleTags = computed(() => (props.item.tags || []).slice(0, 2));
 const toolInitial = computed(() => (props.item.toolName || '工').slice(0, 1));
 const resourceTypeMap = {
   FREE: '免费',
-  CASH_ONLY: '付费',
-  CASH_POINT: '付费',
+  CASH_POINT: '消耗工具点数',
   VIP: 'VIP',
   SMALL_CLASS: '小班',
   INTERNAL: '内部',
@@ -69,7 +68,7 @@ const resourceBadgeClass = computed(() => {
   const type = props.item.resourceType || 'FREE';
   return {
     free: type === 'FREE',
-    paid: type === 'CASH_ONLY' || type === 'CASH_POINT',
+    paid: type === 'CASH_POINT',
     vip: type === 'VIP' || type === 'SMALL_CLASS' || type === 'INTERNAL',
   };
 });

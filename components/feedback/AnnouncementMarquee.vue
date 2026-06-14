@@ -1,6 +1,6 @@
 <template>
-  <div v-if="items.length > 0" class="announcement-bar">
-    <div class="announcement-label">
+  <div v-if="items.length > 0" class="announcement-bar" :class="{ 'is-secondary': variant === 'secondary' }">
+    <div class="announcement-label" :class="{ 'is-secondary': variant === 'secondary' }">
       <span class="announcement-label-icon">{{ labelIcon }}</span>
       <span>{{ label }}</span>
     </div>
@@ -52,6 +52,11 @@ const props = defineProps({
     type: String,
     default: '📢'
   },
+  /** 风格变体：默认 primary（橙金），secondary（绿青，用于第二列"动态"） */
+  variant: {
+    type: String,
+    default: 'primary'
+  },
   /** 自定义 dot 颜色循环,未传则用默认 6 色 */
   dotColors: {
     type: Array,
@@ -75,7 +80,6 @@ function resolveDotColor(index) {
   display: flex;
   align-items: center;
   height: 40px;
-  margin-bottom: 24px;
   padding: 0 12px 0 0;
   background: linear-gradient(90deg, #fef9c3 0%, #fef3c7 40%, #fce7f3 100%);
   border: 1.5px solid #fbbf24;
@@ -143,6 +147,11 @@ function resolveDotColor(index) {
   100% { transform: translateX(-50%); }
 }
 
+/* 滚动速度：调整为更慢的滚动速度（120s） */
+.announcement-scroll-track {
+  animation-duration: 120s !important;
+}
+
 .announcement-item {
   display: inline-flex;
   align-items: center;
@@ -174,5 +183,21 @@ function resolveDotColor(index) {
   margin: 0 16px 0 8px;
   font-size: 14px;
   opacity: 0.5;
+}
+
+/* ── 第二列变体（对齐信息差页面 notice-bar-2 风格）── */
+.announcement-bar.is-secondary {
+  background: linear-gradient(90deg, #ecfdf5 0%, #e0f2fe 40%, #ede9fe 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.announcement-label.is-secondary {
+  background: linear-gradient(135deg, #10b981, #06b6d4) !important;
+  box-shadow: 2px 0 12px rgba(16, 185, 129, 0.35) !important;
+}
+
+.announcement-label.is-secondary .announcement-label-icon {
+  animation: none;
 }
 </style>

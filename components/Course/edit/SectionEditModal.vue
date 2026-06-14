@@ -112,7 +112,14 @@
 
   <!-- 视频预览 -->
   <n-modal v-model:show="showPreview" preset="card" title="视频预览" style="width:760px">
-    <video v-if="videoInfo?.videoUrl" :src="videoInfo.videoUrl" controls style="width:100%;border-radius:4px" />
+    <video
+      v-if="videoInfo?.videoUrl"
+      :src="videoInfo.videoUrl"
+      controls
+      controlsList="nodownload"
+      oncontextmenu="return false"
+      style="width:100%;border-radius:4px"
+    />
   </n-modal>
 </template>
 
@@ -190,19 +197,27 @@ function onVideoChange(e: Event) {
   (e.target as HTMLInputElement).value = '';
 }
 async function uploadVideo(file: File) {
-  uploading.value = true; progress.value = 10;
-  const t = setInterval(() => { if (progress.value < 85) progress.value += 4; }, 600);
+  uploading.value = true;
+  progress.value = 0;
   try {
-    const res: any = await apiUploadVideo(file, file.name);
-    clearInterval(t); progress.value = 100;
+    const sectionIdForUpload = props.section?.id || null;
+    const res: any = await apiUploadVideo(
+      file,
+      file.name,
+      sectionIdForUpload,
+      (percent) => { progress.value = percent; },
+    );
     if (res?.code === 200) {
       message.success('视频上传成功');
-      // 存 relativePath 用于保存，url 用于展示
       videoRelativePath.value = res.data?.relativePath || '';
       videoInfo.value = { videoUrl: res.data?.url || '', fileName: res.data?.videoName || file.name };
     } else message.error(res?.msg || '上传失败');
-  } catch { clearInterval(t); message.error('上传失败'); }
-  finally { uploading.value = false; progress.value = 0; }
+  } catch (err: any) {
+    message.error(err?.message || '上传失败');
+  } finally {
+    uploading.value = false;
+    progress.value = 0;
+  }
 }
 
 // 资料

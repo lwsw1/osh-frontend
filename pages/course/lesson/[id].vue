@@ -146,8 +146,20 @@
           <div class="video-wrap">
             <!-- 有有效视频：显示播放器 -->
             <template v-if="validVideoUrl">
-              <video ref="videoEl" :src="validVideoUrl" controls class="video-player" />
-              <div class="video-actions">
+              <video
+                ref="videoEl"
+                :src="validVideoUrl"
+                controls
+                controlsList="nodownload"
+                oncontextmenu="return false"
+                class="video-player"
+              />
+              <div v-if="videoUploading" class="upload-overlay">
+                <n-spin size="medium" />
+                <p class="upload-progress-text">上传中 {{ uploadProgress }}%</p>
+                <n-progress type="line" :percentage="uploadProgress" style="width:200px;margin-top:6px" />
+              </div>
+              <div v-else class="video-actions">
                 <button class="btn-reupload" @click="videoInputRef?.click()">🔄 重新上传</button>
               </div>
             </template>
@@ -276,7 +288,9 @@ const sidePanelCollapsed = ref(false);
 const floatingSideRef = ref<HTMLElement | null>(null);
 const lessonBodyRef = ref<HTMLElement | null>(null);
 const rightColRef = ref<HTMLElement | null>(null);
-const panelPos = reactive({ x: 14, y: 154 });
+const PANEL_EXPANDED_WIDTH = 360;
+const PANEL_COLLAPSED_WIDTH = 44;
+const panelPos = reactive({ x: 16, y: 62 });
 const isDraggingPanel = ref(false);
 const dragMoved = ref(false);
 let dragStartX = 0;
@@ -337,6 +351,7 @@ onMounted(async () => {
   document.addEventListener('pointerdown', onGlobalPointerDown, true);
   window.addEventListener('resize', onWindowResize);
   nextTick(() => {
+    resetPanelPositionToEditor();
     updateDocReuseTipPosition();
   });
 });
@@ -528,7 +543,7 @@ watch(() => form.docBindMode, (mode) => {
 
 watch(() => sidePanelCollapsed.value, () => {
   nextTick(() => {
-    clampPanelPosition();
+    resetPanelPositionToEditor();
     updateDocReuseTipPosition();
   });
 });
@@ -642,11 +657,39 @@ function onPanelHandleClick() {
   sidePanelCollapsed.value = !sidePanelCollapsed.value;
 }
 
+function getEditorAnchorInBody() {
+  const body = lessonBodyRef.value;
+  const container = rightColRef.value;
+  if (!body || !container) return null;
+  const bodyRect = body.getBoundingClientRect();
+  const toolbar = container.querySelector('.editor-host .toolbar') as HTMLElement | null;
+  const editorHost = container.querySelector('.editor-host') as HTMLElement | null;
+  const anchorEl = editorHost || toolbar;
+  if (!anchorEl) return null;
+  const anchorRect = anchorEl.getBoundingClientRect();
+  return {
+    top: (toolbar?.getBoundingClientRect().top ?? anchorRect.top) - bodyRect.top,
+    left: anchorRect.left - bodyRect.left,
+  };
+}
+
+function resetPanelPositionToEditor() {
+  const body = lessonBodyRef.value;
+  if (!body) return;
+  const anchor = getEditorAnchorInBody();
+  const panelWidth = sidePanelCollapsed.value ? PANEL_COLLAPSED_WIDTH : PANEL_EXPANDED_WIDTH;
+  if (anchor) {
+    panelPos.y = anchor.top;
+    panelPos.x = anchor.left - panelWidth;
+  }
+  clampPanelPosition();
+}
+
 function clampPanelPosition() {
   const body = lessonBodyRef.value;
   if (!body) return;
   const bodyRect = body.getBoundingClientRect();
-  const panelWidth = sidePanelCollapsed.value ? 44 : 360;
+  const panelWidth = sidePanelCollapsed.value ? PANEL_COLLAPSED_WIDTH : PANEL_EXPANDED_WIDTH;
   const panelHeight = sidePanelCollapsed.value ? 44 : Math.min(bodyRect.height - 24, bodyRect.height * 0.78);
   const maxX = Math.max(10, bodyRect.width - panelWidth - 10);
   const maxY = Math.max(10, bodyRect.height - panelHeight - 10);
@@ -655,7 +698,7 @@ function clampPanelPosition() {
 }
 
 function onWindowResize() {
-  clampPanelPosition();
+  resetPanelPositionToEditor();
   updateDocReuseTipPosition();
 }
 
@@ -697,26 +740,29 @@ function onVideoFileChange(e: Event) {
 
 async function uploadVideo(file: File) {
   videoUploading.value = true;
-  uploadProgress.value = 10;
-  const timer = setInterval(() => {
-    if (uploadProgress.value < 85) uploadProgress.value += 4;
-  }, 600);
+  uploadProgress.value = 0;
   try {
-    const res: any = await apiUploadVideo(file, file.name);
-    clearInterval(timer);
-    uploadProgress.value = 100;
+    // 传 sectionId 后，后端会先删该小节 OSS 旧视频（若有）再上传新文件
+    const sectionIdForUpload = currentSectionId.value || null;
+    const res: any = await apiUploadVideo(
+      file,
+      file.name,
+      sectionIdForUpload,
+      (percent) => { uploadProgress.value = percent; },
+    );
     if (res?.code === 200) {
       videoRelativePath.value = res.data?.relativePath || '';
       videoUrl.value = res.data?.url || '';
+      if (res.data?.size) {
+        sectionData.value = { ...sectionData.value, fileSize: res.data.size };
+      }
       message.success('视频上传成功');
-      // 后台静默保存
       autoSaveVideo();
     } else {
       message.error(res?.msg || '上传失败');
     }
-  } catch {
-    clearInterval(timer);
-    message.error('视频上传失败');
+  } catch (err: any) {
+    message.error(err?.message || '视频上传失败');
   } finally {
     videoUploading.value = false;
     uploadProgress.value = 0;
@@ -1157,6 +1203,16 @@ function parseDuration(str: string) {
   position: relative;
 }
 .video-player { width: 100%; height: 100%; display: block; object-fit: contain; }
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.72);
+}
 .video-actions {
   position: absolute; bottom: 8px; right: 8px;
 }

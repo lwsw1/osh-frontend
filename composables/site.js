@@ -1,8 +1,7 @@
 // 获取内部网站列表
 export function useSiteInfoListApi(query = {}) {
-    const q = useQueryToString(query)
-    return useHttpGet("SiteInfoList", `/site/list${q}`, {
-        $: true
+    return useHttpPost("SiteInfoList", `/site/list`, {
+        body: query,
     })
 }
 
@@ -167,5 +166,12 @@ export function useSiteDemoCheckApi(id) {
 export function useSiteDemoStopApi(id) {
     return request("SiteDemoStop", `/site/demo/stop/${id}`, {
         method: "POST",
+    })
+}
+
+// 获取内部网站列表
+export function useSiteResourceOptions() {
+    return useHttpGet("SiteResourceOptionsList", `/site/resources/options`, {
+        $: true
     })
 }

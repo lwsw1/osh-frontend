@@ -47,7 +47,15 @@
 </template>
 
 <script setup>
-const emit = defineEmits(['used']);
+import { request } from '~/composables/useHttp'
+
+const props = defineProps({
+  toolId: {
+    type: Number,
+    required: true,
+  },
+});
+const emit = defineEmits(['refresh-quota']);
 
 const leftValue = ref('');
 const rightValue = ref('');
@@ -81,18 +89,31 @@ const calculate = () => {
     return;
   }
 
-  const operationMap = {
-    '+': left + right,
-    '-': left - right,
-    '*': left * right,
-    '/': left / right,
-  };
-  emit('used');
-  window.setTimeout(() => {
-    calculating.value = false;
-  }, 800);
-  result.value = operationMap[operator.value];
   calculating.value = true;
+  request('ToolCalculator', '/tool/calculator/calculate', {
+    method: 'POST',
+    body: {
+      toolId: props.toolId,
+      leftValue: left,
+      rightValue: right,
+      operator: operator.value,
+    },
+  }).then((res) => {
+    if (res?.code === 200) {
+      const nextResult = res?.data?.result;
+      result.value = nextResult === null || nextResult === undefined ? null : Number(nextResult);
+      emit('refresh-quota');
+      return;
+    }
+    result.value = null;
+    errorText.value = res?.msg === '工具使用次数不足' ? res.msg : '计算失败';
+  }).catch((err) => {
+    result.value = null;
+    const errorMessage = err?.data?.msg || err?.message || '';
+    errorText.value = errorMessage === '工具使用次数不足' ? errorMessage : '计算失败';
+  }).finally(() => {
+    calculating.value = false;
+  });
 };
 
 const resetCalculator = () => {

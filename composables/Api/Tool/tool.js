@@ -30,11 +30,12 @@ export function useToolSearchApi(body) {
   });
 }
 
-export async function apiToolTags() {
+export async function apiToolTags(keyword) {
   return $fetch('/tool/tags', {
     method: 'GET',
     baseURL,
     headers: getToolAuthHeaders(),
+    query: keyword ? { keyword } : undefined,
   });
 }
 
@@ -84,6 +85,49 @@ export async function apiToolUserAnnouncements() {
     method: 'GET',
     baseURL,
     headers: getToolAuthHeaders(),
+  });
+}
+
+export async function apiCurrentToolQuota() {
+  return $fetch('/tool/quota/current', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
+export async function apiToolQuotaPackages() {
+  return $fetch('/tool/purchase/packages', {
+    method: 'GET',
+    baseURL,
+    headers: getToolAuthHeaders(),
+  });
+}
+
+export async function apiCreateToolPurchaseOrder(body) {
+  return $fetch('/tool/purchase/create', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiSaveToolQuotaPackage(body) {
+  return $fetch('/tool/purchase/package/save', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body,
+  });
+}
+
+export async function apiDeleteToolQuotaPackage(packageId) {
+  return $fetch('/tool/purchase/package/delete', {
+    method: 'POST',
+    baseURL,
+    headers: getToolAuthHeaders(),
+    body: { packageId },
   });
 }
 
@@ -165,32 +209,5 @@ export async function apiToolPurchaseDetail(toolId) {
     baseURL,
     headers: getToolAuthHeaders(),
     params: { toolId },
-  });
-}
-
-export async function apiCreateToolPurchaseOrder(body) {
-  return $fetch('/tool/purchase/create', {
-    method: 'POST',
-    baseURL,
-    headers: getToolAuthHeaders(),
-    body,
-  });
-}
-
-export async function apiCancelToolPurchaseOrder(orderNo) {
-  return $fetch('/tool/purchase/cancel', {
-    method: 'POST',
-    baseURL,
-    headers: getToolAuthHeaders(),
-    body: { orderNo },
-  });
-}
-
-export async function apiPayStatus(orderNo) {
-  return $fetch('/pay/status', {
-    method: 'GET',
-    baseURL,
-    headers: getToolAuthHeaders(),
-    params: { orderNo },
   });
 }

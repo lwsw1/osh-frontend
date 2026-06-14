@@ -91,7 +91,11 @@ export function useWebSocket() {
           read: false,
         }
 
-        const isBroadcast = BROADCAST_TYPES.has(msg.type)
+        // // 广播类型消息：不推送到小铃铛通知列表
+        // const BROADCAST_TYPES = ['NEW_OPEN_PROJECT', 'TOOL_USER_NOTICE_REFRESH']
+        // const isBroadcast = BROADCAST_TYPES.includes(msg.type)
+
+         const isBroadcast = BROADCAST_TYPES.has(msg.type)
 
         if (!isBroadcast) {
           notifications.value.unshift(msg)
